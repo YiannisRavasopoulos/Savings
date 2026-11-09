@@ -20,12 +20,12 @@ against your budgets, where the money went and when you can afford what you're s
 tracking.
 
 <p align="center">
-  <img src="docs/screenshots/phone-home.png" alt="Home on a phone" width="230">
-  <img src="docs/screenshots/phone-budget-glass-dark.png" alt="Budget page, Glass Dark theme" width="230">
-  <img src="docs/screenshots/phone-add-glass.png" alt="Adding an expense, Glass theme" width="230">
+  <img src="docs/screenshots/phone-home-glass-dark.png" alt="Home on a phone" width="230">
+  <img src="docs/screenshots/phone-budget-glass-dark.png" alt="Budget page on a phone" width="230">
+  <img src="docs/screenshots/phone-add-glass-dark.png" alt="Adding an expense on a phone" width="230">
 </p>
 <p align="center">
-  <img src="docs/screenshots/pc-budget.png" alt="Budget page on a PC" width="700">
+  <img src="docs/screenshots/pc-budget-glass-dark.png" alt="Budget page on a PC" width="700">
 </p>
 
 > **Keep it on your own network.** Savings is meant for your home network or a VPN. Logins are
@@ -53,8 +53,7 @@ tracking.
 
 ## Want to get started?
 
-1. Get the latest `savings-X.Y.Z.tar.gz` from the **Releases** page (or build it, see
-   [Making a release](docs/releasing.md)).
+1. Get the latest `savings-X.Y.Z.tar.gz` from the **Releases** page.
 2. Unpack it and run `./install.sh`. You need Linux with Docker; the installer asks a few
    questions and sets everything up. Its `INSTALL.md` walks you through it.
 3. Open the admin app, create the admin login, then request your account in Savings and approve it.
@@ -99,7 +98,6 @@ Savings is a [FastAPI](https://fastapi.tiangolo.com/) app with server-rendered p
 and SQLite, running in Docker. The KDE widget is QML in [`widget/`](widget/).
 
 - [Development](docs/development.md): run a test copy, the tests, the project layout.
-- [Making a release](docs/releasing.md): versioning, and building the Savings and widget releases.
 
 ## About this project
 

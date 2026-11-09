@@ -97,7 +97,7 @@ name="savings-$version"
 stage="$work/$name"
 rm -rf "$work"; mkdir -p "$stage/server" "$outdir"
 tar -cf - --exclude='__pycache__' --exclude='*.pyc' --exclude='.pytest_cache' \
-    --exclude='docs/development.md' --exclude='docs/releasing.md' "${ALLOW[@]}" \
+    --exclude='docs/development.md' "${ALLOW[@]}" \
   | tar -xf - -C "$stage/server" || err "copying the server files failed"
 # the docs for friends: without the developer pages (not shipped) or the dev-only tools
 python3 - "$stage/server" <<'PY' || err "trimming the docs failed"
@@ -108,7 +108,6 @@ def drop_section(s, title):            # a "## title" section, up to the next "#
 p = root / "README.md"; s = p.read_text()
 for t in ("Want to contribute?", "Development"):
     s = drop_section(s, t)
-s = s.replace(" (or build it, see\n   [Making a release](docs/releasing.md))", "")
 p.write_text(s)
 p = root / "docs" / "README.md"; s = p.read_text()
 p.write_text(drop_section(s, "For developers"))

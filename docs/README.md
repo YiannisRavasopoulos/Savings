@@ -16,7 +16,6 @@
 
 ## For developers
 
-- **[Making a release](releasing.md)**: Developer guide: versioning and building the Savings and widget releases.
 - **[Development](development.md)**: Developer guide: running a test copy, the tests, and the project layout.
 
 What changed in each version: [CHANGELOG.md](../CHANGELOG.md).

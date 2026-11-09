@@ -91,12 +91,11 @@ LAN with a **device token**. It needs no internet, Docker or Python on the clien
 
 ## Install on any Plasma PC
 
-The widget is a client-side package: build its release once, then copy it to each PC (USB stick,
+The widget is a client-side package: get its release once, then copy it to each PC (USB stick,
 network share, scp…). The Savings server doesn't host or distribute it, and the Savings release
 doesn't include it: the widget has its own releases and version, so it can be updated on its own.
 
-1. Build the release: `./make-release.sh --verify`, which gives
-   `release/savings-widget-<version>.tar.gz` and its `.sha256` (see *Making a release* below).
+1. Get `savings-widget-<version>.tar.gz` (and its `.sha256`) from the **Releases** page.
 2. On each PC: `tar xf savings-widget-<version>.tar.gz && cd savings-widget-<version> && ./install.sh`.
    It installs the widget, or upgrades an older one. The release's `INSTALL.md` explains the rest,
    including installing without a terminal.
@@ -109,38 +108,6 @@ doesn't include it: the widget has its own releases and version, so it can be up
 
 To remove it, remove the widget from your panels, then run `./uninstall.sh` from the release (or
 `kpackagetool6 -t Plasma/Applet -r local.savings.widget`).
-
-## Making a release (to give to friends)
-
-```sh
-./make-release.sh --verify
-```
-
-This one command checks, builds and tests `release/savings-widget-<version>.tar.gz` (plus a
-`.sha256`). The release contains `savings-<version>.plasmoid`, `install.sh`, `uninstall.sh`,
-`INSTALL.md` and `LICENSE` (MIT). The version comes from `package/metadata.json`. It prints each
-step with ✓ / ! / ✗ and ends with a summary, the same way as the server's packager.
-
-| Step | Checks |
-|---|---|
-| Tools and project | python3, tar, sha256sum (and kpackagetool6 for `--verify`); the version looks like 1.2.3; every release file exists; all shell scripts parse |
-| Widget | rebuilds it with `build-widget.sh`, then checks it's a Plasma applet with the id the installer expects, has `main.qml`, its icon and every settings page, and matches `package/` file for file |
-| Version | a version that was **already released** (in `release/`, or inside an older Savings archive in `../release/`) must match it file for file: a released version never changes, so a changed widget needs a new version |
-| Changelog | `../CHANGELOG.md` has a `## Widget <version> · <date>` section |
-| Files | copies only the five files above: never the README, `package/`, the build scripts or `.release-denylist` |
-| Personal data scan | words from `.release-denylist` (a local list that's never shipped); widget tokens; Plasma configs, keys, databases; absolute home paths; developer-only files and mentions. Also inside the `.plasmoid`. |
-| `--verify` | unpacks the release fresh and runs its own `install.sh` (install, then upgrade) and `uninstall.sh` in a throwaway home folder, so this PC's widgets aren't touched. A failing release is removed from `release/`. |
-
-- **Errors** stop the build, and it exits with code 1. **Warnings** are listed and the build goes on:
-  no denylist, the same version already in `release/`, or (with `--no-build`) a `.plasmoid` older
-  than its source. `--strict` makes warnings errors too. Wrong options exit with code 2.
-- **For a new release,** bump the version in `package/metadata.json` and add its section to
-  `../CHANGELOG.md`, with which Savings it needs.
-- **Server compatibility:** the widget understands `/api/summary` generation 1 (`apiVersion` in
-  `main.qml`). A server with a newer generation makes it show "Your Savings server is newer than
-  this widget"; within a generation the server only adds fields, which older widgets ignore.
-- **Installer:** never replaces a newer installed widget with an older one; `./install.sh --force`
-  does it on purpose.
 
 ## Tokens and privacy
 
@@ -163,14 +130,12 @@ package/                 the widget (installed as local.savings.widget)
                          configGeneral / configAppearance / configNotifications.qml (settings pages)
   contents/config/       settings: connection (server, token, refresh) and appearance
 build-widget.sh          zip it into dist/, optionally install it here
-make-release.sh          the release for friends, into release/ (see above)
+make-release.sh          builds the release archive (used by the maintainer)
 installer/               what the release ships besides the .plasmoid: install.sh, uninstall.sh, INSTALL.md
 ../.release-denylist     personal words a release must never contain (shared with the app; stays on this PC)
 ```
 
-- **Release:** bump the version in `package/metadata.json`, add a **Widget X.Y.Z** section to
-  `../CHANGELOG.md`, run `./build-widget.sh --install` to use it here, and
-  `./make-release.sh --verify` for the other PCs. This doesn't need a new app release.
+- **Use your changes here:** `./build-widget.sh --install`, then restart Plasma.
 - **Try it in a window, without touching the panel:** `plasmawindowed local.savings.widget`.
 
 The server side it talks to lives in `../app/api.py`: `/api/summary`.

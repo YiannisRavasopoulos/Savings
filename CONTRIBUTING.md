@@ -39,7 +39,7 @@ people installing Savings, not for developers:
 - widget changes go under `## Widget X.Y.Z · unreleased`, with the widget's next version.
 
 Savings and the widget are released separately and version independently. The maintainer dates
-these sections when releasing; see [docs/releasing.md](docs/releasing.md).
+these sections when releasing.
 
 ## Compatibility between the app and the widget
 
