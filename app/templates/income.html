@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "macros.html" import period_nav, delete_button %}
+{% block title %}Extra income{% endblock %}
+{% block content %}
+<h1>Extra income</h1>
+{% if saved %}<div class="flash saved-flash" role="status" data-fx="heal" data-fx-cents="{{ request.query_params.get('amt', '')|int(0) }}">Saved.</div>{% endif %}
+{% if errors %}<div class="flash flash-error" role="alert">Please fix the fields marked below.</div>{% endif %}
+<div id="add-income"></div>
+{% with action="/income", submit="Save" %}{% include "_income_form.html" %}{% endwith %}
+
+{{ period_nav("/income", p) }}
+<div class="cards">
+  <div class="card"><div class="label">Extra income</div><div class="value">{{ total|eur }}</div></div>
+  <div class="card"><div class="label">Entries</div><div class="value">{{ rows|length }}</div></div>
+</div>
+
+{% if rows %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th>Notes</th><th></th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td>{{ r.date|day }}</td>
+      <td class="wrap">{{ r.description }}</td>
+      <td class="num">{{ r.amount_cents|eur }}</td>
+      <td class="wrap notes">{{ r.notes }}</td>
+      <td class="row-actions">
+        <a class="btn-small" href="/income/{{ r.id }}/edit">Edit</a>
+        {{ delete_button("/income/%d/delete"|format(r.id), "income entry") }}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="muted">No extra income in this period.</p>
+{% endif %}
+{% endblock %}

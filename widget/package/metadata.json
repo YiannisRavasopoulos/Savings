@@ -1,0 +1,18 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "The Savings authors"
+            }
+        ],
+        "Category": "Utilities",
+        "Description": "What's left this period, your budgets and recent expenses from your Savings server, with quick add",
+        "Icon": "savings.png",
+        "Id": "local.savings.widget",
+        "Name": "Savings",
+        "Version": "1.5.1",
+        "License": "MIT"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

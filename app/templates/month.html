@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "macros.html" import period_nav %}
+{% block title %}{{ p.label }}{% endblock %}
+{% block content %}
+<div class="dash-head"><h1>Month</h1><a href="/log?period={{ p.key }}">Log &rsaquo;</a></div>
+{{ period_nav("/month", p) }}
+
+<div class="cards">
+  <div class="card"><div class="label">Regular income</div><div class="value">{{ s.regular|eur }}</div></div>
+  <div class="card"><div class="label">Extra income</div><div class="value">{{ s.extra|eur }}</div></div>
+  <div class="card"><div class="label">Total income</div><div class="value">{{ s.income|eur }}</div></div>
+  <div class="card"><div class="label">Spent (my cost)</div><div class="value">{{ s.spent|eur }}</div></div>
+  <div class="card"><div class="label">Left over</div><div class="value{% if s.left < 0 %} neg{% endif %}">{{ s.left|eur }}</div></div>
+  <div class="card"><div class="label">Budget used</div>
+    <div class="value{% if s.budget_status %} {{ s.budget_status }}-text{% endif %}">{{ s.budget_pct|pct }}</div>
+    <div class="muted">of {{ s.budget|eur }}</div></div>
+</div>
+
+<h2>By category</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr>
+    <th>Category</th><th class="num">Budget</th><th class="num">Spent</th><th class="num">Left</th>
+    <th class="num">% used</th><th class="num">#</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for c in s.categories %}
+    <tr{% if c.joint %} class="row-joint"{% endif %}>
+      <td>{% if c.joint %}<span class="joint-dot" aria-hidden="true"></span>{% endif %}<a href="/log?period={{ p.key }}&category={{ c.id }}">{{ c.name }}</a>{% if c.archived %} <span class="tag">archived</span>{% endif %}</td>
+      <td class="num">{{ c.budget|eur }}</td>
+      <td class="num">{{ c.spent|eur }}</td>
+      <td class="num{% if c.left < 0 %} neg{% endif %}">{{ c.left|eur }}</td>
+      <td class="num{% if c.status %} {{ c.status }}-text{% endif %}">{{ c.pct|pct }}</td>
+      <td class="num">{{ c.n }}</td>
+      <td>{% if c.pct is not none %}<div class="bar" role="img" aria-label="{{ c.pct|pct }} of budget"><span class="{{ c.status }}" style="width: {{ [c.pct, 100]|min|round(1) }}%"></span></div>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr class="strong">
+      <td>Total</td>
+      <td class="num">{{ s.budget|eur }}</td>
+      <td class="num">{{ s.spent|eur }}</td>
+      <td class="num{% if s.budget - s.spent < 0 %} neg{% endif %}">{{ (s.budget - s.spent)|eur }}</td>
+      <td class="num{% if s.budget_status %} {{ s.budget_status }}-text{% endif %}">{{ s.budget_pct|pct }}</td>
+      <td class="num">{{ s.n_expenses }}</td>
+      <td></td>
+    </tr>
+  </tfoot>
+</table>
+</div>
+{% endblock %}

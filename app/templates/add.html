@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Add expense{% endblock %}
+{% block content %}
+<h1>Add expense</h1>
+{% if saved %}<div class="flash saved-flash" role="status" data-fx="damage" data-fx-cents="{{ request.query_params.get('amt', '')|int(0) }}">Saved.</div>{% endif %}
+{% if from_plan %}<div class="flash" role="status">Plan removed. Check the details and save the expense.</div>{% endif %}
+{% if errors %}<div class="flash flash-error" role="alert">Please fix the fields marked below.</div>{% endif %}
+{% with action="/add", submit="Save" %}{% include "_expense_form.html" %}{% endwith %}
+{% endblock %}

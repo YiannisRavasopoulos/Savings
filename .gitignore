@@ -1,0 +1,38 @@
+# Never commit -------------------------------------------------------------------------------
+# this PC's settings (data folder, ports, user ids); .env.example is the committed template
+.env
+# private list of personal words that a release must never contain
+.release-denylist
+
+# Build output (releases go on GitHub Releases, not in git) ------------------------------------
+release/
+widget/release/
+widget/dist/
+*.tar.gz
+*.sha256
+*.plasmoid
+
+# Data that must never end up here by accident -------------------------------------------------
+*.db
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db-wal
+*.db-shm
+backups/
+activity-log*.csv
+spending-export-*.zip
+
+# Developer sandbox and caches -----------------------------------------------------------------
+tmp/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Desktop and editor files ---------------------------------------------------------------------
+.directory
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store

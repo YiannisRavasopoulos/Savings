@@ -1,0 +1,20 @@
+{# Last 3 days before the user's own period resets. Needs: reset (summary.reset_notice or None). #}
+{% if reset %}
+<section class="reset-banner" id="reset-banner" data-key="{{ reset.key }}" role="status" aria-label="Period reset coming up">
+  <button type="button" class="reset-close" aria-label="Hide until the next reset" title="Hide until the next reset">✕</button>
+  <p><strong>Your budget period resets on {{ reset.resets|string|day }}</strong>
+    ({{ "tomorrow" if reset.days == 1 else "in %d days"|format(reset.days) }}). A good time to review your budgets.</p>
+</section>
+<script>
+  (function () {   // hide until the next reset, remembered per device
+    var b = document.getElementById("reset-banner");
+    if (!b) return;
+    var key = "reset-banner-hidden-" + b.getAttribute("data-key");
+    try { if (localStorage.getItem(key)) { b.hidden = true; return; } } catch (e) {}
+    b.querySelector(".reset-close").addEventListener("click", function () {
+      b.hidden = true;
+      try { localStorage.setItem(key, "1"); } catch (e) {}
+    });
+  })();
+</script>
+{% endif %}

@@ -1,0 +1,44 @@
+{# Pending shared-category invitations: what joining means, plus an optional own budget.
+   Needs: invites (joint.pending_invites), back ("/" or "/categories"), invite_msg. #}
+{% if invite_msg %}<div class="flash{{ ' flash-error' if invite_msg.error }}" role="status">{{ invite_msg.text }}</div>{% endif %}
+{% for i in invites %}
+<section class="invite-card" aria-label="Invitation to {{ i.name }}">
+  <div><span class="joint-badge">Shared</span> <strong>{{ i.moderator }}</strong> invited you to share
+    <strong>“{{ i.name }}”</strong>.</div>
+  <div class="cat-actions">
+    <button type="button" class="btn-small btn-joint" data-open="dlg-accept-{{ i.id }}">Review &amp; accept</button>
+    <form method="post" action="/shared/invites/{{ i.id }}/decline" class="inline">
+      <input type="hidden" name="back" value="{{ back }}"><button type="submit" class="btn-small">Decline</button></form>
+  </div>
+</section>
+
+<dialog id="dlg-accept-{{ i.id }}" class="dialog-joint" aria-labelledby="dlg-accept-{{ i.id }}-t">
+  <form method="post" action="/shared/invites/{{ i.id }}/accept">
+    <input type="hidden" name="back" value="{{ back }}">
+    <h2 id="dlg-accept-{{ i.id }}-t">Join “{{ i.name }}”?</h2>
+    <div class="warn-box">
+      <ul class="tight">
+        <li>You join <strong>today</strong>. Every expense logged here by anyone is split between members by share; your
+          share starts at <strong>{{ i.share_pct }}%</strong> (an equal split among {{ i.members_then }}). The moderator can
+          rearrange shares later; that only affects expenses dated from then on.</li>
+        <li>Whoever logs an expense pays the full price and is shown as “Paid by”; each member's share counts in their
+          own totals. Settling up is between you.</li>
+        <li>Members see each other's expenses <em>in this category only</em> (date, description, amount, paid by).
+          Everything else of yours stays private.</li>
+        <li>You can leave at any time; your history stays.</li>
+      </ul>
+    </div>
+    <div class="field">
+      <label for="inv-budget-{{ i.id }}">Your monthly budget for it (€)</label>
+      <input id="inv-budget-{{ i.id }}" name="budget" inputmode="decimal" autocomplete="off" placeholder="optional">
+      <p class="muted small">Your own budget, checked in your own periods. You can set or change it later in Categories.</p>
+    </div>
+    <label class="choice"><input type="checkbox" name="agree" value="1" required>
+      <span>I understand and agree.</span></label>
+    <div class="dialog-actions">
+      <button type="button" data-close>Cancel</button>
+      <button type="submit" class="btn-joint">Accept invitation</button>
+    </div>
+  </form>
+</dialog>
+{% endfor %}

@@ -1,0 +1,50 @@
+{# Savings vs budget: number, gauge, outcome, by category, Learn how. Needs `vb` (summary.budget_balance)
+   and `key` (the period key, for log links). Used by Home and the Budget page. #}
+  {% set gain = vb.balance >= 0 %}
+  <div class="vb-head">
+    <div class="vb-value {{ 'gain' if gain else 'loss' }}" data-cents="{{ vb.balance }}">{{ "+" if vb.balance > 0 }}{{ vb.balance|eur }}</div>
+    <div class="vb-verdict">{% if vb.finished %}{% if vb.balance > 0 %}saved, under budget{% elif vb.balance < 0 %}damage, over budget{% else %}exactly on budget{% endif %}{% else %}{% if vb.balance > 0 %}saved so far, ahead of budget{% elif vb.balance < 0 %}damage so far, behind budget{% else %}exactly on budget{% endif %}{% endif %}</div>
+  </div>
+  <div class="vb-gauge" role="img" aria-label="{{ 'Ahead of' if gain else 'Behind' }} budget by {{ vb.balance|abs|eur }}">
+    <span class="vb-fill {{ 'gain' if gain else 'loss' }}" style="width: {{ ([vb.balance|abs / [vb.allowed, vb.scale]|max, 1]|min * 50)|round(1) }}%"></span>
+  </div>
+  <div class="vb-scale muted small"><span>damage</span><span>saved</span></div>
+  {% if vb.finished %}
+  <p class="vb-line">Saved <strong class="{{ 'gain' if vb.projected >= 0 else 'loss' }}-text vb-amount">{{ vb.projected|eur }}</strong> this period.</p>
+  {% else %}
+  <p class="vb-line">On track to save <strong class="{{ 'gain' if vb.projected >= 0 else 'loss' }}-text vb-amount">{{ vb.projected|eur }}</strong> this period if you keep to budget from here.</p>
+  {% endif %}
+  <details class="vb-details" open>
+    <summary>By category</summary>
+    <ul class="vb-cats">
+    {% for c in vb.categories %}
+      <li{% if c.joint %} class="is-joint"{% endif %} title="{% if c.budget <= 0 %}No budget · {{ c.spent|eur }} spent{% else %}Allowed {{ c.allowed|eur }} by today · spent {{ c.daily|eur }}{% if c.fixed %} + {{ c.fixed|eur }} bills &amp; one-offs{% endif %}{% endif %}">
+        <a href="/log?period={{ key }}&category={{ c.id }}" class="watch-name">{% if c.joint %}<span class="joint-dot" aria-hidden="true"></span>{% endif %}{{ c.name }}</a>
+        <span class="vb-amount {{ 'gain' if c.balance >= 0 else 'loss' }}-text">{{ "+" if c.balance > 0 }}{{ c.balance|eur }}</span>
+        <div class="vb-bar" aria-hidden="true"><span class="vb-fill {{ 'gain' if c.balance >= 0 else 'loss' }}" style="width: {{ (c.balance|abs / vb.scale * 50)|round(1) }}%"></span></div>
+      </li>
+    {% endfor %}
+    </ul>
+  </details>
+  <details class="vb-learn">
+    <summary>Learn how</summary>
+    <p>Your budgets are spread evenly over the period, so {% if vb.finished %}over the whole period{% else %}by today (day {{ vb.day }} of {{ vb.days }}){% endif %} they allow
+      <strong class="vb-amount">{{ vb.allowed|eur }}</strong> of day-to-day spending. You've spent
+      <strong class="vb-amount">{{ vb.daily|eur }}</strong>. Spending less than that is <span class="gain-text">saved</span>;
+      more is <span class="loss-text">damage</span>.</p>
+    <ul>
+      <li>Bills, one-offs and future-dated expenses{% if vb.fixed %} (<span class="vb-amount">{{ vb.fixed|eur }}</span> this period){% endif %}
+        don't set the pace: they come off their category's budget straight away. Only the part beyond the budget counts as damage.</li>
+      <li>Spending in a category without a budget is all damage.</li>
+      {% if vb.finished %}
+      <li><strong>Saved</strong> = income − spent. Spending exactly your budgets would have saved
+        <span class="vb-amount">{{ vb.planned|eur }}</span>.</li>
+      {% else %}
+      <li><strong>On track to save</strong> = income − spent so far − the rest of your day-to-day budget: what's left at
+        the end if you keep to budget from here. Spending exactly your budgets would save
+        <span class="vb-amount">{{ vb.planned|eur }}</span>.</li>
+      {% endif %}
+      <li><strong>Budget pace</strong> draws the same comparison day by day: green while you're under the dashed line, red while you're over.</li>
+      <li>On the last day, the result is simply budget − spent.</li>
+    </ul>
+  </details>

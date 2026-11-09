@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "macros.html" import period_nav, delete_button %}
+{% block title %}Log{% endblock %}
+{% block content %}
+<h1>Log</h1>
+{{ period_nav("/log", p, extra, {"category": cat_id} if cat_id else {}) }}
+
+<form method="get" action="/log" class="filter">
+  <input type="hidden" name="period" value="{{ p.key }}">
+  <label for="f-cat" class="inline-label">Category</label>
+  <select id="f-cat" name="category" onchange="this.form.submit()">
+    <option value="">All categories</option>
+    {% for c in categories %}
+    <option value="{{ c.id }}"{% if c.id == cat_id %} selected{% endif %}>{{ c.name }}{% if c.archived %} (archived){% endif %}</option>
+    {% endfor %}
+  </select>
+  <noscript><button type="submit">Filter</button></noscript>
+</form>
+
+<div class="cards">
+  <div class="card"><div class="label">My cost</div><div class="value">{{ totals.mine|eur }}</div></div>
+  <div class="card"><div class="label">Total amount</div><div class="value">{{ totals.amount|eur }}</div></div>
+  <div class="card"><div class="label">Entries</div><div class="value">{{ rows|length }}</div></div>
+</div>
+
+{% if rows %}
+<div class="table-wrap">
+<table>
+  <thead><tr>
+    <th>Date</th><th>Description</th><th>Category</th>
+    <th class="num">Amount</th><th class="num">My cost</th>
+    <th>Notes</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr class="{{ 'row-joint' if r.is_joint }}{{ ' row-future' if r.future }}">
+      <td>{{ r.date|day }}</td>
+      <td class="wrap">{{ r.description }}{% if r.future %} <span class="tag tag-future" title="Dated after today. It already counts in this period's totals.">future</span>{% endif %}{% if r.one_off and r.mine %} <span class="tag">one-off</span>{% endif %}{% if r.recurring_id and r.mine %} <a class="tag tag-recurring" href="/recurring#rule-{{ r.recurring_id }}" title="Made by a recurring expense">↻ recurring</a>{% endif %}
+        {% if r.is_joint %}<div class="small joint-text">Paid by {{ "you" if r.mine else r.paid_by }}</div>{% endif %}
+        {% if splits.get(r.id) %}<div class="split-note">Split:
+          {% for s in splits[r.id] %}<span class="split-part{% if s.me %} split-me{% endif %}">{{ s.name }} {{ "%g"|format(s.pct) }}% · {{ s.cents|eur }}</span>{% if not loop.last %} · {% endif %}{% endfor %}
+          <span class="muted">of {{ r.amount_cents|eur }}</span></div>{% endif %}</td>
+      <td>{% if r.is_joint %}<span class="joint-dot" aria-hidden="true"></span>{% endif %}{{ r.category }}</td>
+      <td class="num">{{ r.amount_cents|eur }}</td>
+      <td class="num"><strong>{{ r.my_cost|eur }}</strong></td>
+      <td class="wrap notes">{{ r.notes if r.mine }}</td>
+      <td class="row-actions">
+        {% if r.mine %}
+        <a class="btn-small" href="/expenses/{{ r.id }}/edit">Edit</a>
+        {{ delete_button("/expenses/%d/delete"|format(r.id), "expense") }}
+        {% else %}<span class="muted small">your share</span>{% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="muted">No expenses in this period{% if cat_id %} for this category{% endif %}.</p>
+{% endif %}
+{% endblock %}

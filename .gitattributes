@@ -1,0 +1,14 @@
+# Normalise line endings to LF everywhere (the shell scripts break with CRLF).
+* text=auto eol=lf
+
+# Binary files: never touch them.
+*.png binary
+*.ico binary
+*.plasmoid binary
+*.tar.gz binary
+*.sqlite binary
+*.db binary
+
+# Shell scripts keep LF even on Windows checkouts.
+*.sh text eol=lf
+savings text eol=lf

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Savings
+GenericName=Savings tracker
+Comment=Starts Savings if needed and opens it in the browser
+Exec=@DIR@/open-savings-client.sh
+Icon=@DIR@/app/static/icons/icon-512.png
+Categories=Office;Finance;
+Terminal=false
+StartupNotify=true
+NoDisplay=false

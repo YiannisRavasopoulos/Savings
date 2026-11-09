@@ -1,0 +1,52 @@
+# Runs on every push and pull request: the whole test suite in the app's own Docker image,
+# plus syntax checks for the shell scripts and the widget package.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the app image
+        run: docker build -t savings-ci .
+
+      - name: Run the tests
+        # a hard limit, so a stuck test fails the run instead of hanging it
+        run: timeout 600 docker run --rm savings-ci pytest --no-header -o faulthandler_timeout=60
+
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell scripts parse
+        run: |
+          for f in savings *.sh scripts/*.sh installer/*.sh widget/*.sh widget/installer/*.sh; do
+            bash -n "$f" || { echo "::error file=$f::doesn't parse"; exit 1; }
+          done
+
+      - name: Widget package is valid
+        run: |
+          python3 - <<'PY'
+          import json, pathlib
+          root = pathlib.Path("widget/package")
+          m = json.loads((root / "metadata.json").read_text())
+          assert m["KPackageStructure"] == "Plasma/Applet" and m["KPlugin"]["Id"] == "local.savings.widget"
+          assert (root / "contents/ui/main.qml").is_file()
+          print("widget", m["KPlugin"]["Version"], "ok")
+          PY
+
+      - name: Versions have changelog entries
+        run: |
+          python3 scripts/release-checks.py changelog CHANGELOG.md app "$(cat VERSION)" || [ $? = 3 ]

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+  <kcfgfile name=""/>
+  <group name="General">
+    <entry name="serverUrl" type="String">
+      <label>Address of the Savings server, e.g. http://192.168.0.10:8090</label>
+      <default>http://localhost:8090</default>
+    </entry>
+    <entry name="token" type="String">
+      <label>Widget token from Savings → Settings → KDE widget</label>
+      <default></default>
+    </entry>
+    <entry name="refreshMinutes" type="Int">
+      <label>How often to refresh, in minutes</label>
+      <default>5</default>
+      <min>1</min>
+      <max>120</max>
+    </entry>
+    <entry name="showPerDay" type="Bool">
+      <label>Show the per-day amount in the panel</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="Appearance">
+    <entry name="panelShows" type="String">
+      <label>What the panel shows: left, perday, spent, budget or icon</label>
+      <default>left</default>
+    </entry>
+    <entry name="panelStyle" type="String">
+      <label>Panel text: plain (€1,820), labeled (€1,820 left) or twoLine</label>
+      <default>plain</default>
+    </entry>
+    <entry name="panelBar" type="String">
+      <label>Mini bar under the panel number: off, period or budget</label>
+      <default>off</default>
+    </entry>
+    <entry name="numberColor" type="String">
+      <label>Colour the panel number: off, over (red when over) or traffic (green / amber / red)</label>
+      <default>over</default>
+    </entry>
+    <entry name="panelIcon" type="String">
+      <label>Panel icon: logo, mono (follows the panel theme) or none</label>
+      <default>logo</default>
+    </entry>
+    <entry name="privacy" type="Bool">
+      <label>Hide amounts until hovered (panel) or clicked (popup)</label>
+      <default>false</default>
+    </entry>
+    <entry name="primaryTab" type="String">
+      <label>Which popup tab opens first: overview or budget</label>
+      <default>overview</default>
+    </entry>
+    <entry name="sections" type="String">
+      <label>Popup sections in order, comma-separated</label>
+      <default>left,stats,where,trend,budgets,recent</default>
+    </entry>
+    <entry name="hiddenSections" type="String">
+      <label>Popup sections not shown, comma-separated</label>
+      <default></default>
+    </entry>
+    <entry name="whereChart" type="String">
+      <label>Where it went: doughnut or bars</label>
+      <default>doughnut</default>
+    </entry>
+    <entry name="trendPeriods" type="Int">
+      <label>Spent vs income: how many periods (3, 6 or 12)</label>
+      <default>6</default>
+    </entry>
+    <entry name="showFuture" type="Bool">
+      <label>Show future-dated spending in the charts</label>
+      <default>true</default>
+    </entry>
+    <entry name="density" type="String">
+      <label>Popup density: comfortable or compact</label>
+      <default>comfortable</default>
+    </entry>
+    <entry name="popupSize" type="String">
+      <label>Popup size: small, medium or large</label>
+      <default>medium</default>
+    </entry>
+    <entry name="numberFormat" type="String">
+      <label>Number format: en (€1,820.30) or eu (€1.820,30)</label>
+      <default>en</default>
+    </entry>
+    <entry name="wholeEuros" type="Bool">
+      <label>Round to whole euros</label>
+      <default>false</default>
+    </entry>
+  </group>
+  <group name="Notifications">
+    <entry name="notifyInvites" type="Bool">
+      <label>Notify about invitations to shared categories</label>
+      <default>true</default>
+    </entry>
+    <entry name="notifyShared" type="Bool">
+      <label>Notify about changes in shared categories (joins, leaves, shares, moderation)</label>
+      <default>true</default>
+    </entry>
+    <entry name="notifyReset" type="Bool">
+      <label>Notify a few days before the budget period resets</label>
+      <default>false</default>
+    </entry>
+    <entry name="notifyRecurring" type="Bool">
+      <label>Notify when a recurring payment is added</label>
+      <default>false</default>
+    </entry>
+    <entry name="notifyBudgets" type="Bool">
+      <label>Notify when a category reaches 90 % or goes over its budget</label>
+      <default>false</default>
+    </entry>
+    <entry name="seenNotifications" type="String">
+      <label>Notifications already shown (ids, comma-separated)</label>
+      <default></default>
+    </entry>
+    <entry name="notificationsPrimed" type="Bool">
+      <label>The first check has run (older events were marked as seen, not shown)</label>
+      <default>false</default>
+    </entry>
+  </group>
+  <group name="Cache">
+    <entry name="cache" type="String">
+      <label>Last summary received (shown while the server can't be reached)</label>
+      <default></default>
+    </entry>
+  </group>
+</kcfg>

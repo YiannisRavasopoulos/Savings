@@ -1,0 +1,56 @@
+/* Glass theme: white, iOS-style system colours. Loaded on top of light.css. Picking it also turns
+   on the glass look in style.css (html[data-look="glass"]): white frosted, see-through panels over
+   a soft glare of the app's green, with larger rounded corners. */
+:root {
+  color-scheme: light;
+
+  --bg: #f2f2f7;              /* grouped background */
+  --surface: #ffffff;
+  --surface-alt: #f2f2f7;
+  --text: #1c1c1e;
+  --text-muted: #5b5b60;
+  --border: #d1d1d6;
+  --border-strong: #aeaeb2;
+  --rule: #e5e5ea;
+  --th-bg: #f2f2f7;
+  --btn-bg: #e9e9ee;
+
+  --accent: #2e7d32;          /* the app's own green */
+  --accent-text: #ffffff;
+  --link: #2e7d32;
+  --bar-track: #e5e5ea;
+
+  --danger: #d70015;
+  --amber: #c98a00;
+  --amber-text: #8a5d00;
+  --red: #d70015;
+  --on-red: #ffffff;
+
+  --flash-ok-bg: #e3f6e8;
+  --flash-ok-border: #9fd8ad;
+  --flash-err-bg: #fde8ea;
+  --flash-err-border: #f0a7ae;
+  --tag-bg: #e9e9ee;
+  --tag-border: #d1d1d6;
+
+  --chart-spent: #ff3b30;
+  --chart-income: #2e7d32;
+  --chart-extra: #ff9f0a;
+  --chart-grid: #e5e5ea;
+
+  --gain: #2e7d32;
+  --loss: #d70015;
+
+  --joint: #8944ab;
+  --on-joint: #ffffff;
+  --joint-bg: #f4ebf8;
+
+  --cat-1: #34c759;
+  --cat-2: #007aff;
+  --cat-3: #ff9f0a;
+  --cat-4: #af52de;
+  --cat-5: #ff6b22;
+  --cat-6: #30b0c7;
+  --cat-7: #ff3b30;
+  --cat-8: #8e8e93;
+}

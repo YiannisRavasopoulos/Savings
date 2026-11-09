@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Import expenses{% endblock %}
+{% macro category_options(selected) %}
+  <option value="">— none: such rows can't be imported —</option>
+  {% for c in categories %}<option value="{{ c.id }}"{% if selected == c.id %} selected{% endif %}>{{ "◆ " if c.is_joint }}{{ c.name }}</option>{% endfor %}
+{% endmacro %}
+{% macro option_fields(o) %}
+  <div class="field">
+    <label for="f-default">Category for rows without one</label>
+    <select id="f-default" name="default_category_id">{{ category_options(o.default_category_id) }}</select>
+  </div>
+  <label class="choice check-row"><input type="checkbox" name="create_missing" value="1"{% if o.create_missing %} checked{% endif %}>
+    <span><strong>Create missing categories</strong> <span class="muted small">— a category named in the file that you
+      don't have yet is added (with no budget).</span></span></label>
+{% endmacro %}
+{% block content %}
+<h1>Import expenses</h1>
+{% if done %}<div class="flash" role="status">Imported {{ n }} expense{{ "" if n == "1" else "s" }}. They're in your <a href="/log">Log</a>.</div>{% endif %}
+{% if error %}<div class="flash flash-error" role="alert">{{ error }}</div>{% endif %}
+
+{% if not result %}
+<form method="post" action="/import/preview" enctype="multipart/form-data" class="panel">
+  <div class="field">
+    <label for="f-file">CSV file</label>
+    <input id="f-file" type="file" name="file" accept=".csv,text/csv,text/plain" required>
+  </div>
+  {{ option_fields(options) }}
+  <button type="submit" class="btn-primary">Preview</button>
+  <p class="muted small">Nothing is saved until you check the preview and press Import.</p>
+</form>
+
+<section class="panel">
+  <h2>What the file should look like</h2>
+  <p class="small">A header row naming the columns, then one expense per row. Commas, semicolons or tabs all work.</p>
+<pre class="csv-example">date,description,category,amount,notes
+2026-10-03,Groceries,Food,54.20,
+05/10/2026,Train ticket,Transport,"12,50",work trip</pre>
+  <ul class="small">
+    <li><strong>date</strong> and <strong>amount</strong> are required. Dates: 2026-10-05 or day first (05/10/2026, 05.10.2026).
+      Amounts: 12.50, 12,50, €1.234,56.</li>
+    <li><strong>description</strong>, <strong>category</strong>, <strong>notes</strong> and <strong>one_off</strong> (yes/1) are optional.
+      Other columns are ignored, and common names like <em>payee</em>, <em>memo</em> or <em>value</em> are recognised.</li>
+    <li><strong>Bank exports:</strong> if some amounts are negative, the negative ones are taken as spending and positive
+      ones (money in) are skipped.</li>
+    <li>This app's own export (<em>Download my data → expenses.csv</em>) can be imported too. Rows someone else paid are skipped.</li>
+    <li>Rows that match an expense you already have (same date, amount and description) are flagged and skipped unless you choose otherwise.</li>
+    <li>Up to {{ max_rows }} rows and 2 MB per file.</li>
+  </ul>
+</section>
+{% else %}
+{% set c = result.counts %}
+<section class="panel">
+  <h2>Preview{% if filename %}: {{ filename }}{% endif %}</h2>
+  <ul class="import-counts">
+    <li class="st-ok"><strong>{{ c.ok }}</strong> ready</li>
+    {% if c.duplicate %}<li class="st-duplicate"><strong>{{ c.duplicate }}</strong> possible duplicate{{ "" if c.duplicate == 1 else "s" }}</li>{% endif %}
+    {% if c.skip %}<li class="st-skip"><strong>{{ c.skip }}</strong> skipped</li>{% endif %}
+    {% if c.error %}<li class="st-error"><strong>{{ c.error }}</strong> with problems</li>{% endif %}
+  </ul>
+  {% if result.bank_style %}<p class="small muted">Some amounts are negative, so this looks like a bank export: negative amounts
+    are imported as spending and positive ones (money in) are skipped.</p>{% endif %}
+  {% if result.new_categories %}<p class="small">New categories to create: {% for n in result.new_categories %}<span class="tag">{{ n }}</span> {% endfor %}</p>{% endif %}
+
+  <form method="post" action="/import/confirm">
+    <input type="hidden" name="filename" value="{{ filename }}">
+    <textarea name="csv_text" hidden>{{ csv_text }}</textarea>
+    {{ option_fields(options) }}
+    {% if c.duplicate %}<label class="choice check-row"><input type="checkbox" name="include_duplicates" value="1"{% if options.include_duplicates %} checked{% endif %}>
+      <span><strong>Import possible duplicates too</strong></span></label>{% endif %}
+    <div class="row-actions import-actions">
+      <button type="submit" formaction="/import/preview" class="btn">Update preview</button>
+      <button type="submit" class="btn-primary"{% if not c.ok and not c.duplicate %} disabled{% endif %}>Import</button>
+      <a class="btn" href="/import">Choose another file</a>
+    </div>
+    <p class="muted small">Rows with problems or skipped are never imported. Fix them in the file and upload it again if you need them.
+      After changing an option above, press <em>Update preview</em> to see its effect.</p>
+  </form>
+</section>
+
+<div class="table-wrap">
+<table class="import-table">
+  <thead><tr><th>Row</th><th>Date</th><th>Description</th><th>Category</th><th class="num">Amount</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for r in result.rows[:1000] %}
+    <tr class="st-{{ r.status }}">
+      <td class="muted">{{ r.line }}</td>
+      <td>{{ r.date|day if r.date else "" }}</td>
+      <td class="wrap">{{ r.description }}</td>
+      <td>{{ r.category }}{% if r.new_category %} <span class="tag">new</span>{% endif %}</td>
+      <td class="num">{{ r.amount_cents|eur if r.amount_cents is not none else "" }}</td>
+      <td class="wrap">{% if r.status == "ok" %}<span class="st-label">Ready</span>{% else %}<span class="st-label">{{ {"duplicate": "Duplicate?", "skip": "Skipped", "error": "Problem"}[r.status] }}</span>
+        <span class="small">{{ r.reason }}</span>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% if result.rows|length > 1000 %}<p class="muted small">Showing the first 1000 of {{ result.rows|length }} rows. The counts above cover all of them.</p>{% endif %}
+{% endif %}
+{% endblock %}

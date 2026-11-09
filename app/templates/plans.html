@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% from "macros.html" import error %}
+{% block title %}Planned purchases{% endblock %}
+{% macro err(dlg, name) %}{% if reopen == dlg %}{{ error(errors, name) }}{% endif %}{% endmacro %}
+{% macro val(dlg, name, default="") %}{{ values.get(name, default) if reopen == dlg else default }}{% endmacro %}
+
+{% macro plan_fields(dlg, p=none) %}
+  <div class="field">
+    <label for="{{ dlg }}-name">What do you want to buy?</label>
+    <input id="{{ dlg }}-name" name="name" maxlength="80" autocomplete="off" value="{{ val(dlg, 'name', p.name if p else '') }}">
+    {{ err(dlg, "name") }}
+  </div>
+  <div class="two-col">
+    <div class="field">
+      <label for="{{ dlg }}-amount">Price (€)</label>
+      <input id="{{ dlg }}-amount" name="amount" inputmode="decimal" autocomplete="off"
+             value="{{ val(dlg, 'amount', p.amount_cents|amount_input if p else '') }}">
+      {{ err(dlg, "amount") }}
+    </div>
+    <div class="field">
+      <label for="{{ dlg }}-saved">Already set aside (€)</label>
+      <input id="{{ dlg }}-saved" name="saved" inputmode="decimal" autocomplete="off" placeholder="optional"
+             value="{{ val(dlg, 'saved', p.saved_cents|amount_input if p and p.saved_cents else '') }}">
+      {{ err(dlg, "saved") }}
+    </div>
+  </div>
+  <div class="field">
+    <label for="{{ dlg }}-cat">Category</label>
+    {% set chosen = val(dlg, 'category_id', p.category_id|string if p and p.category_id else '') %}
+    <select id="{{ dlg }}-cat" name="category_id">
+      <option value="">No category</option>
+      {% for c in categories %}<option value="{{ c.id }}"{% if chosen == c.id|string %} selected{% endif %}>{{ c.name }}</option>{% endfor %}
+    </select>
+    {{ err(dlg, "category_id") }}
+  </div>
+  <div class="field">
+    <label for="{{ dlg }}-notes">Notes</label>
+    <textarea id="{{ dlg }}-notes" name="notes" rows="2" maxlength="500">{{ val(dlg, 'notes', p.notes if p else '') }}</textarea>
+    {{ err(dlg, "notes") }}
+  </div>
+{% endmacro %}
+
+{% block content %}
+<div class="dash-head">
+  <h1>Planned purchases</h1>
+  <button type="button" class="btn-accent" data-open="dlg-plan-add">+ Add plan</button>
+</div>
+{% if message %}<div class="flash" role="status">{{ message }}</div>{% endif %}
+
+{# ---------- forecast ---------- #}
+<section class="panel">
+  <h2>Projected savings</h2>
+  {% if fc.ready %}
+  <p class="muted small">From now, if your spending stays like your last {{ fc.n_history }} finished period{{ "" if fc.n_history == 1 else "s" }}.
+    One-off expenses and future extra income are left out.</p>
+  <div class="trend-stats">
+    <div><span class="muted small">Typical period costs</span><strong>{{ fc.typical|eur }}</strong></div>
+    <div><span class="muted small">A pricier period</span><strong>{{ fc.cautious|eur }}</strong></div>
+    <div><span class="muted small">Confidence</span><strong class="conf conf-{{ fc.confidence }}">{{ fc.confidence|capitalize }}</strong></div>
+  </div>
+  <p class="small">You usually have <strong>{{ fc.left_low|eur }}–{{ fc.left_high|eur }}</strong> left over per period.
+    {% if fc.confidence == "low" %}Your spending varies a lot or there's little history, so treat suggestions as rough.{% endif %}</p>
+  <div class="chart-box"><canvas id="chart-forecast" aria-label="Projected savings over the next 12 periods"></canvas></div>
+  <p class="muted small">Suggestions keep a cushion of {{ fc.cushion|eur }} (10% of your monthly income) after each purchase.</p>
+  <script type="application/json" id="forecast-data">{{ fc.chart|tojson }}</script>
+  {% else %}
+  <p class="not-yet muted">Suggestions need at least {{ fc.min_history }} finished periods of logged spending — you have
+    {{ fc.n_history }}. Keep logging everything (including rent and bills) and set your regular income in Settings.
+    You can add plans already; suggestions appear once there's enough history.</p>
+  {% endif %}
+</section>
+
+{# ---------- plans ---------- #}
+{% if placed %}
+<ul class="cat-list">
+{% for r in placed %}
+  {% set p = r.plan %}
+  <li class="cat-card plan-card" id="plan-{{ p.id }}">
+    <div class="cat-head">
+      <strong class="cat-name">{{ p.name }}</strong>
+      {% if p.category %}<span class="tag">{{ p.category }}</span>{% endif %}
+      <span class="cat-budget">{{ p.amount_cents|eur }}</span>
+    </div>
+    {% if p.saved_cents %}<div class="muted small">{{ p.saved_cents|eur }} already set aside</div>{% endif %}
+    {% if r.shared and r.my_price is defined %}<div class="small"><span class="joint-dot" aria-hidden="true"></span>Shared category: your share is
+      <strong>{{ r.my_price|eur }}</strong> of {{ p.amount_cents|eur }}.</div>{% endif %}
+    {% if p.notes %}<div class="muted small">{{ p.notes }}</div>{% endif %}
+
+    {% if fc.ready %}
+    <div class="suggestion">
+      {% if r.confident is defined %}
+        <div class="sg-main"><span class="sg-badge sg-ok">Best time</span>
+          <strong>{{ r.confident.label }}</strong> <span class="muted small">({{ r.confident.start|string|day }} – {{ r.confident.end|string|day }})</span></div>
+        <div class="small">Even in a pricier month you'd still have about <strong>{{ r.after|eur }}</strong> saved afterwards.</div>
+        {% if r.likely is defined %}<div class="small muted">If spending stays typical, it could already fit in {{ r.likely.label }}.</div>{% endif %}
+      {% elif r.likely is defined %}
+        <div class="sg-main"><span class="sg-badge sg-maybe">Possible</span> <strong>{{ r.likely.label }}</strong></div>
+        <div class="small">Only if spending stays typical; a pricier month would push it past the next 12 periods.</div>
+      {% else %}
+        <div class="sg-main"><span class="sg-badge sg-no">Not yet</span> Not within the next 12 periods.</div>
+        <div class="small">{% if r.periods_needed %}At your typical saving of {{ r.per_period|eur }} per period it would take about {{ r.periods_needed }} periods.
+          {% else %}On average you're not saving anything right now, so there's no date to suggest.{% endif %}</div>
+      {% endif %}
+      {% if r.category is defined %}
+        {% set c = r.category %}
+        <div class="small {{ 'red-text' if c.over > 0 else 'muted' }}">
+          {% if c.over > 0 %}{{ p.category }} would go over {{ "your" if r.shared else "its" }} {{ c.budget|eur }} budget by {{ c.over|eur }} that month (it usually costs {{ "you " if r.shared }}{{ c.usual|eur }}).
+          {% else %}Fits within {{ "your" if r.shared else p.category ~ "'s" }} {{ c.budget|eur }} budget{% if r.shared %} for {{ p.category }}{% endif %} that month.{% endif %}</div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="cat-actions">
+      <form method="post" action="/plans/{{ p.id }}/bought" class="inline"><button type="submit" class="btn-small btn-accent">Bought it</button></form>
+      <button type="button" class="btn-small" data-open="dlg-plan-edit-{{ p.id }}">Edit</button>
+      <form method="post" action="/plans/{{ p.id }}/move" class="inline">
+        <button type="submit" class="btn-small" name="direction" value="up" aria-label="Higher priority"{% if loop.first %} disabled{% endif %}>↑</button>
+        <button type="submit" class="btn-small" name="direction" value="down" aria-label="Lower priority"{% if loop.last %} disabled{% endif %}>↓</button>
+      </form>
+      <button type="button" class="btn-small btn-danger" data-open="dlg-plan-delete-{{ p.id }}">Delete</button>
+    </div>
+  </li>
+{% endfor %}
+</ul>
+{% if placed|length > 1 %}<p class="muted small">Plans higher in the list get first claim on your savings; use ↑ ↓ to set priority.</p>{% endif %}
+{% else %}
+<p class="muted">No plans yet. Add something you want to buy and see when it fits comfortably.</p>
+{% endif %}
+
+{# ---------- dialogs ---------- #}
+<dialog id="dlg-plan-add" aria-labelledby="dlg-plan-add-t">
+  <form method="post" action="/plans" novalidate>
+    <h2 id="dlg-plan-add-t">Plan a purchase</h2>
+    {{ plan_fields("dlg-plan-add") }}
+    <div class="dialog-actions"><button type="button" data-close>Cancel</button>
+      <button type="submit" class="btn-accent">Add plan</button></div>
+  </form>
+</dialog>
+{% for r in placed %}
+{% set p = r.plan %}
+<dialog id="dlg-plan-edit-{{ p.id }}" aria-labelledby="dlg-plan-edit-{{ p.id }}-t">
+  <form method="post" action="/plans/{{ p.id }}/edit" novalidate>
+    <h2 id="dlg-plan-edit-{{ p.id }}-t">Edit plan</h2>
+    {{ plan_fields("dlg-plan-edit-%d"|format(p.id), p) }}
+    <div class="dialog-actions"><button type="button" data-close>Cancel</button>
+      <button type="submit" class="btn-accent">Save</button></div>
+  </form>
+</dialog>
+<dialog id="dlg-plan-delete-{{ p.id }}" class="dialog-danger" aria-labelledby="dlg-plan-delete-{{ p.id }}-t">
+  <form method="post" action="/plans/{{ p.id }}/delete">
+    <h2 id="dlg-plan-delete-{{ p.id }}-t">Delete “{{ p.name }}”?</h2>
+    <p>The plan is removed; nothing else changes. If you bought it, use “Bought it” instead so it's logged as an expense.</p>
+    <div class="dialog-actions"><button type="button" data-close>Cancel</button>
+      <button type="submit" class="btn-danger-solid">Delete</button></div>
+  </form>
+</dialog>
+{% endfor %}
+
+{% if alert %}
+<dialog id="dlg-alert" class="dialog-danger" role="alertdialog" aria-labelledby="dlg-alert-title" data-autoshow>
+  <h2 id="dlg-alert-title">Can't do that</h2>
+  <p>{{ alert }}</p>
+  <div class="dialog-actions"><button type="button" class="btn-accent" data-close>OK</button></div>
+</dialog>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/dialogs.js?v={{ static_v }}" data-reopen="{{ reopen or '' }}"></script>
+{% if fc.ready %}
+<script src="/static/vendor/chart.umd.min.js?v={{ static_v }}"></script>
+<script src="/static/app.js?v={{ static_v }}"></script>
+{% endif %}
+{% endblock %}

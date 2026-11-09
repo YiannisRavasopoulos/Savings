@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Admin{% endblock %} · Savings Admin</title>
+  <link rel="icon" type="image/png" href="/static/icons/admin-192.png?v={{ static_v }}">
+  <link rel="stylesheet" href="/static/admin.css?v={{ static_v }}">
+</head>
+<body>
+  <header class="adm-top">
+    <img src="/static/icons/admin-192.png?v={{ static_v }}" alt="" width="28" height="28">
+    <span class="adm-title">Savings <strong>Admin</strong></span>
+    <span class="adm-note">this PC only</span>
+    {% block topright %}{% endblock %}
+  </header>
+  {% if tab is defined %}
+  <nav class="adm-tabs" aria-label="Admin sections">
+    <a href="/"{% if tab == "home" %} class="active" aria-current="page"{% endif %}>Dashboard</a>
+    <a href="/log"{% if tab == "log" %} class="active" aria-current="page"{% endif %}>Activity log</a>
+  </nav>
+  {% endif %}
+  <main class="adm-main">
+    {% block content %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

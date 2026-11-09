@@ -1,0 +1,31 @@
+# One container: the app, the admin app (localhost only) and the daily backup thread.
+# DATA_DIR (from .env or the shell) is the host folder mounted at /data.
+# create_host_path: false makes Compose fail instead of silently creating a
+# root-owned folder when DATA_DIR does not exist.
+
+services:
+  app:
+    build: .
+    image: "${IMAGE:-savings:latest}"
+    container_name: "${CONTAINER_NAME:-savings}"
+    user: "${PUID:-1000}:${PGID:-1000}"
+    init: true
+    restart: "${RESTART:-unless-stopped}"   # starts with Docker at boot; "savings autostart off" sets "no"
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "${PORT:-8090}:8080"                       # the app, reachable from your LAN/VPN
+      - "127.0.0.1:${ADMIN_PORT:-8091}:8091"       # admin, only from this PC
+    healthcheck:                            # Docker marks the container unhealthy if the app stops answering
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/favicon.ico', timeout=5)"]
+      interval: 2m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - type: bind
+        source: "${DATA_DIR:-../Savings Server Data}"
+        target: /data
+        bind:
+          create_host_path: false

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2e7d32">
+  <title>Offline · Savings</title>
+  {# Self-contained: shown by the service worker when the server can't be reached. #}
+  <style>
+    :root { --bg: #f4f6f4; --surface: #fff; --text: #1f2421; --muted: #5c665f; --accent: #2e7d32; --border: #d5dcd6; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #161a17; --surface: #1f2421; --text: #e6ebe7; --muted: #a3ada6; --accent: #66bb6a; --border: #333b35; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
+    .box { max-width: 380px; text-align: center; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 28px 22px; }
+    h1 { font-size: 1.3rem; margin: 14px 0 8px; }
+    p { color: var(--muted); line-height: 1.45; margin: 8px 0; }
+    button { margin-top: 14px; font: inherit; font-weight: 700; padding: 12px 22px; border: 0; border-radius: 8px;
+      background: var(--accent); color: #fff; cursor: pointer; }
+    .status { font-size: .85rem; min-height: 1.2em; }
+  </style>
+</head>
+<body>
+  <main class="box">
+    <img src="/static/icons/icon-192.png?v={{ v }}" alt="" width="64" height="64">
+    <h1>Can't reach Savings</h1>
+    <p>Your device can't connect to the Savings server right now. Check that you're on your home Wi-Fi or connected
+      to the VPN, then try again.</p>
+    <p>If you were saving something, it wasn't saved. Try again once you're back online.</p>
+    <button type="button" id="retry">Try again</button>
+    <p class="status" id="status" role="status"></p>
+  </main>
+  <script>
+    (function () {
+      var status = document.getElementById("status");
+      function retry() { status.textContent = "Trying…"; location.reload(); }
+      document.getElementById("retry").addEventListener("click", retry);
+      window.addEventListener("online", retry);        // back online: reload automatically
+    })();
+  </script>
+</body>
+</html>

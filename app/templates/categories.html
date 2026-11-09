@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+{% from "macros.html" import error %}
+{% block title %}Categories{% endblock %}
+
+{# Errors and typed values belong only to the dialog that was submitted. #}
+{% macro err(dlg, name) %}{% if reopen == dlg %}{{ error(errors, name) }}{% endif %}{% endmacro %}
+{% macro val(dlg, name, default="") %}{{ values.get(name, default) if reopen == dlg else default }}{% endmacro %}
+
+{% block content %}
+<div class="dash-head">
+  <h1>Categories</h1>
+  <button type="button" class="btn-accent" data-open="dlg-add">+ Add category</button>
+</div>
+{% if message and not notice_title %}<div class="flash" role="status">{{ message }}</div>{% endif %}
+{% include "_reset_banner.html" %}
+{% include "_invites.html" %}
+{% set o = overview %}
+<section class="budget-total" aria-label="Total budget">
+  <div class="bt-head">
+    <div>
+      <div class="label">Total budget · {{ current_label }}</div>
+      <div class="bt-value">{{ o.total|eur }}<span class="muted"> / month</span></div>
+      <div class="muted small">{{ o.n_budgeted }} of {{ o.n_active }} active categor{{ "y" if o.n_active == 1 else "ies" }} have a budget{% if o.n_shared %} (incl. {{ o.n_shared }} shared, your part){% endif %} · {{ o.range }}</div>
+    </div>
+  </div>
+
+  <div class="bt-row">
+    <div class="bt-line">
+      <span>Of your income</span>
+      {% if o.income %}
+      <span class="{{ 'red-text' if o.income_status }}">{{ o.income_pct|pct }} of {{ o.income|eur }}</span>
+      {% else %}
+      <span class="muted">no regular income set</span>
+      {% endif %}
+    </div>
+    {% if o.income %}
+    <div class="bar" role="img" aria-label="{{ o.income_pct|pct }} of income budgeted"><span class="{{ o.income_status }}" style="width: {{ [o.income_pct, 100]|min|round(1) }}%"></span></div>
+    <div class="small {{ 'red-text' if o.unbudgeted < 0 else 'muted' }}">
+      {% if o.unbudgeted >= 0 %}{{ o.unbudgeted|eur }} of your income is not budgeted.
+      {% else %}Budgets exceed your income by {{ (-o.unbudgeted)|eur }}.{% endif %}
+    </div>
+    {% else %}
+    <div class="small muted">Set it in <a href="/settings#income">Profile</a> to compare.</div>
+    {% endif %}
+  </div>
+
+  <div class="bt-row">
+    <div class="bt-line">
+      <span>Spent so far</span>
+      {% if o.total %}
+      <span class="{{ o.spent_status ~ '-text' if o.spent_status }}">{{ o.spent|eur }} · {{ o.spent_pct|pct }}</span>
+      {% else %}
+      <span>{{ o.spent|eur }}</span>
+      {% endif %}
+    </div>
+    {% if o.total %}
+    <div class="bar" role="img" aria-label="{{ o.spent_pct|pct }} of the total budget spent"><span class="{{ o.spent_status }}" style="width: {{ [o.spent_pct, 100]|min|round(1) }}%"></span></div>
+    <div class="small muted">{% if o.spent <= o.total %}{{ (o.total - o.spent)|eur }} left in your budgets{% else %}Over budget by {{ (o.spent - o.total)|eur }}{% endif %}</div>
+    {% endif %}
+  </div>
+</section>
+
+<p class="muted">Budgets shown are for {{ current_label }}. Archived categories don't count towards the
+  total, are hidden from the Add form, and keep all their entries. Shared categories count with your part.</p>
+
+<ul class="cat-list">
+{% for c in categories %}
+  {% set u = usage[c.id] %}
+  <li class="cat-card{% if c.archived %} is-archived{% endif %}" id="cat-{{ c.id }}">
+    <div class="cat-head">
+      <strong class="cat-name">{{ c.name }}</strong>
+      {% if c.archived %}<span class="tag">archived</span>{% endif %}
+      <span class="cat-budget">{{ c.budget|eur }}<span class="muted"> / month</span></span>
+    </div>
+    <div class="muted cat-meta">
+      {% if u.n %}{{ u.n }} expense{{ "" if u.n == 1 else "s" }} · {{ u.total|eur }} in total{% else %}No expenses yet{% endif %}
+    </div>
+    <div class="cat-actions">
+      <button type="button" class="btn-small" data-open="dlg-edit-{{ c.id }}">Edit</button>
+      <form method="post" action="/categories/{{ c.id }}/move" class="inline">
+        <button type="submit" class="btn-small" name="direction" value="up" aria-label="Move {{ c.name }} up"{% if loop.first %} disabled{% endif %}>↑</button>
+        <button type="submit" class="btn-small" name="direction" value="down" aria-label="Move {{ c.name }} down"{% if loop.last %} disabled{% endif %}>↓</button>
+      </form>
+      <form method="post" action="/categories/{{ c.id }}/archive" class="inline">
+        <button type="submit" class="btn-small">{{ "Unarchive" if c.archived else "Archive" }}</button>
+      </form>
+      {% if not c.archived %}<button type="button" class="btn-small btn-joint-outline" data-open="dlg-share-{{ c.id }}">Turn into shared</button>{% endif %}
+      <button type="button" class="btn-small btn-danger" data-open="dlg-delete-{{ c.id }}">Delete</button>
+    </div>
+  </li>
+{% endfor %}
+</ul>
+
+{% if shared %}
+<h2 class="shared-title">Shared categories</h2>
+<ul class="cat-list">
+{% for x in shared %}
+  {% set c = x.c %}
+  <li class="cat-card cat-joint{% if x.status == 'left' %} is-archived{% endif %}" id="cat-{{ c.id }}">
+    <div class="cat-head">
+      <strong class="cat-name">{{ c.name }}</strong>
+      <span class="joint-badge">{{ "Moderator" if x.is_mod else "Shared" }}</span>
+      {% if x.status == "left" %}<span class="tag">archived for you</span>{% endif %}
+      <span class="cat-budget">{{ x.my_budget|eur }}<span class="muted"> / month</span></span>
+    </div>
+    {% if x.status != "left" %}
+    <div class="muted cat-meta">Your share {{ (x.share_bp / 100)|round(2) }}% · {{ x.spent|eur }} spent together in your current period</div>
+    <div class="cat-actions">
+      <a class="btn-small btn-joint" href="/shared/{{ c.id }}">Open</a>
+      <button type="button" class="btn-small" data-open="dlg-edit-{{ c.id }}">{{ "Edit name & your budget" if x.is_mod else "Your budget" }}</button>
+    </div>
+    {% else %}
+    {% if x.deletable %}
+    <div class="muted cat-meta">Closed, and it never had any expenses.</div>
+    <div class="cat-actions">
+      <button type="button" class="btn-small btn-danger" data-open="dlg-delete-closed-{{ c.id }}">Delete</button>
+    </div>
+    <dialog id="dlg-delete-closed-{{ c.id }}" class="dialog-danger" aria-labelledby="dlg-delete-closed-{{ c.id }}-t">
+      <form method="post" action="/categories/{{ c.id }}/delete-closed">
+        <h2 id="dlg-delete-closed-{{ c.id }}-t">Delete “{{ c.name }}”?</h2>
+        <p>It has no expenses, so nothing in anyone's totals changes. It's removed for every former member.</p>
+        <div class="dialog-actions"><button type="button" data-close>Cancel</button><button type="submit" class="btn-danger-solid">Delete</button></div>
+      </form>
+    </dialog>
+    {% else %}
+    <div class="muted cat-meta">You left it. Its past expenses, and your share of them, stay in your history.</div>
+    {% endif %}
+    {% endif %}
+  </li>
+{% endfor %}
+</ul>
+<p class="muted small">Your budget for a shared category is your own, set like any other budget and checked in your own
+  periods against your share of the spending. It's included in the total budget above.</p>
+{% endif %}
+
+{# ---------- Add ---------- #}
+<dialog id="dlg-add" aria-labelledby="dlg-add-title">
+  <form method="post" action="/categories" novalidate>
+    <h2 id="dlg-add-title">Add category</h2>
+    <div class="field">
+      <label for="add-name">Name</label>
+      <input id="add-name" name="name" maxlength="50" required autocomplete="off" value="{{ val('dlg-add', 'name') }}">
+      {{ err("dlg-add", "name") }}
+    </div>
+    <div class="budget-row">
+      <div class="field">
+        <label for="add-budget">Monthly budget (€)</label>
+        <input id="add-budget" name="budget" inputmode="decimal" autocomplete="off" placeholder="optional"
+               value="{{ val('dlg-add', 'budget') }}">
+        {{ err("dlg-add", "budget") }}
+      </div>
+      <div class="field">
+        <label for="add-from">From</label>
+        <input id="add-from" name="budget_from" type="date" value="{{ val('dlg-add', 'budget_from', today) }}">
+        {{ err("dlg-add", "budget_from") }}
+      </div>
+    </div>
+    <label class="choice check-row">
+      <input type="checkbox" name="joint" value="1" id="add-joint"{% if val('dlg-add', 'joint') == '1' %} checked{% endif %}>
+      <span><strong>Shared category</strong> <span class="muted small">— share its expenses with other users. You'll be its
+        moderator; invite people from its page. The budget above is your own.</span></span>
+    </label>
+    <div class="dialog-actions">
+      <button type="button" data-close>Cancel</button>
+      <button type="submit" class="btn-accent">Add</button>
+    </div>
+  </form>
+</dialog>
+
+{% for c in editable %}
+{% set u = usage[c.id] %}
+{% set hist = history.get(c.id, []) %}
+{# ---------- Edit ---------- #}
+<dialog id="dlg-edit-{{ c.id }}" aria-labelledby="dlg-edit-{{ c.id }}-title">
+  <form method="post" action="/categories/{{ c.id }}/edit" novalidate>
+    <h2 id="dlg-edit-{{ c.id }}-title">Edit “{{ c.name }}”</h2>
+    <div class="field">
+      <label for="edit-name-{{ c.id }}">Name</label>
+      {% set can_rename = not c.is_joint or c.id in moderated %}
+      <input id="edit-name-{{ c.id }}" name="name" maxlength="50" required autocomplete="off"{% if not can_rename %} readonly{% endif %}
+             value="{{ val('dlg-edit-%d'|format(c.id), 'name', c.name) }}">
+      {% if not can_rename %}<p class="muted small">Only the moderator can rename a shared category.</p>{% endif %}
+      {{ err("dlg-edit-%d"|format(c.id), "name") }}
+      {% if u.n %}<p class="muted small">Renaming keeps all {{ u.n }} expense{{ "" if u.n == 1 else "s" }} in this category.</p>{% endif %}
+    </div>
+    {% if c.is_joint %}<p class="small joint-note">Shared category: this is <strong>your own</strong> budget for it, checked
+      against your share of its spending. Other members set their own.</p>{% endif %}
+    <p class="small">Budget in {{ current_label }}: <strong>{{ c.budget|eur }}</strong>. To change it, enter a new
+      amount and the date it starts from; earlier months keep the old budget.</p>
+    <div class="budget-row">
+      <div class="field">
+        <label for="edit-budget-{{ c.id }}">New budget (€)</label>
+        <input id="edit-budget-{{ c.id }}" name="budget" inputmode="decimal" autocomplete="off" placeholder="unchanged"
+               value="{{ val('dlg-edit-%d'|format(c.id), 'budget') }}">
+        {{ err("dlg-edit-%d"|format(c.id), "budget") }}
+      </div>
+      <div class="field">
+        <label for="edit-from-{{ c.id }}">From</label>
+        <input id="edit-from-{{ c.id }}" name="budget_from" type="date"
+               value="{{ val('dlg-edit-%d'|format(c.id), 'budget_from', today) }}">
+        {{ err("dlg-edit-%d"|format(c.id), "budget_from") }}
+      </div>
+    </div>
+    {% if hist %}
+    <details class="history" open>
+      <summary>Budget history ({{ hist|length }})</summary>
+      <table>
+        <thead><tr><th>From</th><th class="num">Budget</th><th></th></tr></thead>
+        <tbody>{% for h in hist %}<tr>
+          <td>{{ h.effective_from|day }}</td><td class="num">{{ h.monthly_budget_cents|eur }}</td>
+          <td class="row-actions">
+            <button type="button" class="btn-small" data-open="dlg-budget-edit-{{ h.id }}">Edit</button>
+            <button type="button" class="btn-small btn-danger" data-open="dlg-budget-delete-{{ h.id }}">Delete</button>
+          </td></tr>{% endfor %}</tbody>
+      </table>
+    </details>
+    {% endif %}
+    <div class="dialog-actions">
+      <button type="button" data-close>Cancel</button>
+      <button type="submit" class="btn-accent">Save</button>
+    </div>
+  </form>
+</dialog>
+
+{% if not c.is_joint %}
+{# ---------- Delete ---------- #}
+{% set dlg = "dlg-delete-%d"|format(c.id) %}
+{% set others = categories|rejectattr("id", "equalto", c.id)|list %}
+{% set last_active = not c.archived and active_count == 1 %}
+<dialog id="{{ dlg }}" class="dialog-danger" aria-labelledby="{{ dlg }}-title">
+  <form method="post" action="/categories/{{ c.id }}/delete" novalidate data-delete-form>
+    <h2 id="{{ dlg }}-title">Delete “{{ c.name }}”?</h2>
+    <input type="hidden" name="expected" value="{{ u.n }}">
+    {% if last_active %}
+      <p>This is your only active category, so it can't be deleted: the Add form would have nothing to
+        choose from. Add or unarchive another category first.</p>
+      <div class="dialog-actions"><button type="button" data-close>OK</button></div>
+    {% elif u.n == 0 %}
+      <p>It has no expenses, so nothing else is affected.
+        {% if u.budgets %}Its budget history ({{ u.budgets }} entr{{ "y" if u.budgets == 1 else "ies" }}) is removed too.{% endif %}</p>
+      <div class="dialog-actions">
+        <button type="button" data-close>Cancel</button>
+        <button type="submit" class="btn-danger-solid">Delete</button>
+      </div>
+    {% else %}
+      <p class="warn-box">It has <strong>{{ u.n }} expense{{ "" if u.n == 1 else "s" }}</strong> ({{ u.total|eur }} in total,
+        {{ u.first|day }} – {{ u.last|day }}){% if u.budgets %} and {{ u.budgets }} budget entr{{ "y" if u.budgets == 1 else "ies" }}{% endif %}.
+        Choose what happens to the expenses:</p>
+      {{ err(dlg, "action") }}
+
+      <label class="choice">
+        <input type="radio" name="action" value="move" {% if val(dlg, "action", "move") == "move" %}checked{% endif %}{% if not others %} disabled{% endif %}>
+        <span><strong>Move them to another category</strong>, then delete “{{ c.name }}”. Use this to merge two categories.</span>
+      </label>
+      <div class="choice-detail" data-for="move">
+        {% if others %}
+        <label for="target-{{ c.id }}" class="sr-only">Move to</label>
+        <select id="target-{{ c.id }}" name="target">
+          <option value="" disabled selected>Move to…</option>
+          {% for o in others %}<option value="{{ o.id }}">{{ o.name }}{% if o.archived %} (archived){% endif %}</option>{% endfor %}
+        </select>
+        {{ err(dlg, "target") }}
+        {% else %}
+        <p class="muted small">There is no other category to move them to.</p>
+        {% endif %}
+      </div>
+
+      <label class="choice">
+        <input type="radio" name="action" value="delete_entries" {% if val(dlg, "action") == "delete_entries" or not others %}checked{% endif %}>
+        <span><strong>Delete the expenses too.</strong> They disappear from every month and total. This can't be
+          undone, except by restoring a backup.</span>
+      </label>
+      <div class="choice-detail" data-for="delete_entries">
+        <label for="confirm-{{ c.id }}" class="small">Type <strong>{{ c.name }}</strong> to confirm</label>
+        <input id="confirm-{{ c.id }}" name="confirm" autocomplete="off" value="{{ val(dlg, 'confirm') }}">
+        {{ err(dlg, "confirm") }}
+      </div>
+
+      <p class="muted small">{% if u.budgets %}Its budget history is removed either way. {% endif %}To keep everything as it is, archive it instead.</p>
+      <div class="dialog-actions">
+        <button type="button" data-close>Cancel</button>
+        <button type="submit" formaction="/categories/{{ c.id }}/archive"{% if c.archived %} disabled{% endif %}>Archive instead</button>
+        <button type="submit" class="btn-danger-solid">Delete category</button>
+      </div>
+    {% endif %}
+  </form>
+</dialog>
+
+
+{# ---------- Turn into shared ---------- #}
+{% set sdlg = "dlg-share-%d"|format(c.id) %}
+<dialog id="{{ sdlg }}" class="dialog-joint" aria-labelledby="{{ sdlg }}-t">
+  <form method="post" action="/categories/{{ c.id }}/share" novalidate>
+    <h2 id="{{ sdlg }}-t">Turn “{{ c.name }}” into a shared category?</h2>
+    <ul class="tight">
+      <li>You become its <strong>moderator</strong> and can invite people by username. They join on the day they accept,
+        and expenses from then on are split equally (e.g. 50/50 for two); you can rearrange the shares.</li>
+      <li><strong>Its {{ u.n }} past expense{{ "" if u.n == 1 else "s" }} stay 100% yours</strong>, exactly as they are now.</li>
+      <li>Its budget ({{ c.budget|eur }}) stays <strong>your own</strong> budget; each member sets their own.</li>
+      <li>It can't be turned back into a personal category; you can close it later.</li>
+    </ul>
+    <label class="choice"><input type="checkbox" name="agree" value="1"><span>I understand</span></label>
+    {{ err(sdlg, "agree") }}
+    <div class="dialog-actions">
+      <button type="button" data-close>Cancel</button>
+      <button type="submit" class="btn-joint">Turn into shared</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+
+{# ---------- Budget history entries ---------- #}
+{% for h in hist %}
+{% set bdlg = "dlg-budget-edit-%d"|format(h.id) %}
+{% set mine = reopen == bdlg %}
+<dialog id="{{ bdlg }}" aria-labelledby="{{ bdlg }}-t">
+  <form method="post" action="/categories/{{ c.id }}/budgets/{{ h.id }}/edit" novalidate>
+    <h2 id="{{ bdlg }}-t">Edit budget of “{{ c.name }}”</h2>
+    <div class="field">
+      <label for="be-amount-{{ h.id }}">Monthly budget (€)</label>
+      <input id="be-amount-{{ h.id }}" name="budget" inputmode="decimal" autocomplete="off"
+             value="{{ values.get('budget', '') if mine else h.monthly_budget_cents|amount_input }}">
+      {% if mine %}{{ error(errors, "budget") }}{% endif %}
+    </div>
+    <div class="field">
+      <label for="be-from-{{ h.id }}">From</label>
+      <input id="be-from-{{ h.id }}" name="budget_from" type="date"
+             value="{{ values.get('budget_from', '') if mine else h.effective_from }}">
+      {% if mine %}{{ error(errors, "budget_from") }}{% endif %}
+    </div>
+    <p class="muted small">Applies to every period ending on or after this date, until the next budget entry.</p>
+    <div class="dialog-actions">
+      <button type="button" data-close>Cancel</button>
+      <button type="submit" class="btn-accent">Save</button>
+    </div>
+  </form>
+</dialog>
+{% set older = hist[loop.index] if loop.index < hist|length else none %}
+{% set newer = hist[loop.index0 - 1] if loop.index0 > 0 else none %}
+<dialog id="dlg-budget-delete-{{ h.id }}" class="dialog-danger" aria-labelledby="dlg-budget-delete-{{ h.id }}-t">
+  <form method="post" action="/categories/{{ c.id }}/budgets/{{ h.id }}/delete">
+    <h2 id="dlg-budget-delete-{{ h.id }}-t">Delete {{ h.monthly_budget_cents|eur }} from {{ h.effective_from|day }}?</h2>
+    <p>Periods that used it will
+      {% if older %}use <strong>{{ older.monthly_budget_cents|eur }}</strong> (from {{ older.effective_from|day }}) instead{% else %}have <strong>no budget (€0)</strong> for “{{ c.name }}”{% endif %}{% if newer %},
+      until {{ newer.effective_from|day }} when {{ newer.monthly_budget_cents|eur }} starts{% endif %}.</p>
+    <div class="dialog-actions">
+      <button type="button" data-close>Cancel</button>
+      <button type="submit" class="btn-danger-solid">Delete</button>
+    </div>
+  </form>
+</dialog>
+{% endfor %}
+{% endfor %}
+
+{# ---------- Result pop-up ---------- #}
+{% if notice_title and message %}
+<dialog id="dlg-notice" class="dialog-joint" role="alertdialog" aria-labelledby="dlg-notice-title" data-autoshow>
+  <h2 id="dlg-notice-title">{{ notice_title }}</h2>
+  <p>{{ message }}</p>
+  <div class="dialog-actions"><button type="button" class="btn-joint" data-close>OK</button></div>
+</dialog>
+{% endif %}
+
+{# ---------- Error pop-up ---------- #}
+{% if alert %}
+<dialog id="dlg-alert" class="dialog-danger" role="alertdialog" aria-labelledby="dlg-alert-title" data-autoshow>
+  <h2 id="dlg-alert-title">Can't do that</h2>
+  <p>{{ alert }}</p>
+  <div class="dialog-actions"><button type="button" class="btn-accent" data-close>OK</button></div>
+</dialog>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/dialogs.js?v={{ static_v }}" data-reopen="{{ reopen or '' }}"></script>
+{% endblock %}

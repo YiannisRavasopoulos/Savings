@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Edit recurring expense{% endblock %}
+{% block content %}
+<h1>Edit recurring expense</h1>
+<p><a href="/recurring">&lsaquo; Recurring expenses</a></p>
+{% if errors %}<div class="flash flash-error" role="alert">Please fix the fields marked below.</div>{% endif %}
+<form method="post" action="/recurring/{{ rule.id }}/edit" class="panel" novalidate>
+  <p class="small"><strong>{{ frequency }}</strong> from {{ rule.start_date|day }}.
+    <span class="muted">To change the schedule, delete this one and set up a new one.</span></p>
+  {% with schedule=False %}{% include "_recurring_fields.html" %}{% endwith %}
+  <p class="muted small">Changes apply to payments dated after today: those are replaced (including any you edited by
+    hand). Payments up to today stay as they are.</p>
+  <button type="submit" class="btn-primary">Save changes</button>
+</form>
+{% endblock %}

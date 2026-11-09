@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Savings Admin
+GenericName=Savings account administration
+Comment=Approve account requests and manage Savings users (this PC only)
+Exec=@DIR@/open-savings-admin.sh
+Icon=@DIR@/app/static/icons/admin-512.png
+Categories=Office;Finance;
+Terminal=false
+StartupNotify=true
+NoDisplay=false

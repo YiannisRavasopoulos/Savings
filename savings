@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+# savings — manage your Savings server: status, checkup, start/stop, backups, updates, automation.
+#
+#   savings status                 is it running and healthy (one-line overview)
+#   savings check [--notify]       full checkup; exit code 1 if something's wrong
+#                                  (--notify: a desktop notification when there's a problem)
+#   savings start | stop | restart
+#   savings logs [-f]              the server's log (-f: follow)
+#   savings backup                 take a backup now (database snapshot + CSV export)
+#   savings backups                list the backups
+#   savings restore <snapshot>     restore one (keeps a safety copy of the current database)
+#   savings update                 rebuild and restart, e.g. after installing a newer version
+#   savings autostart on|off       start with Docker at boot (on by default)
+#   savings autocheck on|off       daily checkup with a desktop notification if something's wrong
+#   savings open | admin           open the app / the admin app in the browser
+#   savings version
+#   savings uninstall              remove the program (keeps your data)
+set -uo pipefail
+dir="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+cd "$dir" || exit 1
+
+# ---------- settings (.env) ----------
+env_val() { sed -n "s/^$1=//p" .env 2>/dev/null | tail -1 | sed 's/^"\(.*\)"$/\1/'; }
+NAME="$(env_val CONTAINER_NAME)"; NAME="${NAME:-savings}"
+PORT="$(env_val PORT)"; PORT="${PORT:-8090}"
+ADMIN_PORT="$(env_val ADMIN_PORT)"; ADMIN_PORT="${ADMIN_PORT:-8091}"
+DATA_DIR="$(env_val DATA_DIR)"; DATA_DIR="${DATA_DIR:-../Savings Server Data}"
+case "$DATA_DIR" in /*) ;; *) DATA_DIR="$dir/$DATA_DIR" ;; esac
+VERSION="$(cat VERSION 2>/dev/null || echo dev)"
+UNIT="savings-check-$NAME"
+
+if [ -t 1 ]; then R=$'\033[1;31m'; Y=$'\033[1;33m'; G=$'\033[1;32m'; B=$'\033[1m'; N=$'\033[0m'; else R= Y= G= B= N=; fi
+ok()   { [ "${QUIET:-0}" = 1 ] || printf '  %s✓%s %s\n' "$G" "$N" "$*"; }
+warn() { printf '  %s!%s %s\n' "$Y" "$N" "$*"; WARN=$((WARN + 1)); PROBLEMS+=("$*"); }
+bad()  { printf '  %s✗%s %s\n' "$R" "$N" "$*"; BAD=$((BAD + 1)); PROBLEMS+=("$*"); }
+die()  { printf '%sError:%s %s\n' "$R" "$N" "$*" >&2; exit 1; }
+need_docker() {
+  command -v docker >/dev/null 2>&1 || die "Docker isn't installed."
+  docker info >/dev/null 2>&1 || die "Can't reach Docker. Is it running, and are you in the docker group?"
+}
+running() { [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" = "true" ]; }
+health() { docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$NAME" 2>/dev/null || echo missing; }
+answers() {   # answers PORT PATH: does http://localhost:PORT/PATH respond?
+  if command -v curl >/dev/null 2>&1; then curl -fs -o /dev/null --max-time 5 "http://localhost:$1$2" 2>/dev/null
+  else python3 -c "import sys, urllib.request; urllib.request.urlopen(sys.argv[1], timeout=5)" "http://localhost:$1$2" 2>/dev/null; fi
+}
+set_env() {   # set_env KEY VALUE in .env (add it if missing)
+  if grep -q "^$1=" .env 2>/dev/null; then sed -i "s|^$1=.*|$1=$2|" .env; else printf '%s=%s\n' "$1" "$2" >> .env; fi
+}
+newest_backup() { ls -t "$DATA_DIR"/backups/db/*.sqlite 2>/dev/null | head -1; }
+age_hours() { echo $(( ( $(date +%s) - $(stat -c %Y "$1") ) / 3600 )); }
+
+cmd="${1:-status}"; shift || true
+case "$cmd" in
+  # ------------------------------------------------------------------ status
+  status)
+    need_docker
+    if running; then
+      h="$(health)"; tone="$G"; [ "$h" = "healthy" ] || [ "$h" = "none" ] || tone="$Y"
+      printf '%sSavings %s%s: %srunning%s (%s) · app http://localhost:%s · admin http://localhost:%s\n' \
+        "$B" "$VERSION" "$N" "$tone" "$N" "$h" "$PORT" "$ADMIN_PORT"
+    else
+      printf '%sSavings %s%s: %snot running%s (start it: savings start)\n' "$B" "$VERSION" "$N" "$R" "$N"
+    fi
+    b="$(newest_backup)"
+    [ -n "$b" ] && printf '  last backup: %s (%sh ago) · data: %s (%s)\n' "$(basename "$b")" "$(age_hours "$b")" "$DATA_DIR" "$(du -sh "$DATA_DIR" 2>/dev/null | cut -f1)"
+    ;;
+  # ------------------------------------------------------------------ check
+  check)
+    notify=0; QUIET=0
+    for a in "$@"; do case "$a" in --notify) notify=1 ;; --quiet) QUIET=1 ;; esac; done
+    WARN=0; BAD=0; PROBLEMS=()
+    [ "$QUIET" = 1 ] || printf '%sSavings checkup%s (%s)\n' "$B" "$N" "$(date '+%d %b %Y %H:%M')"
+    if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+      bad "Docker isn't reachable"
+    elif ! running; then
+      bad "the server isn't running (savings start)"
+    else
+      ok "server running"
+      case "$(health)" in
+        healthy|none) ok "Docker health check: $(health)" ;;
+        starting) ok "Docker health check: starting up (normal for the first minutes after a start)" ;;
+        *) bad "Docker health check: $(health) (see: savings logs)" ;;
+      esac
+      # just (re)started? give it up to 20 s before calling it a problem
+      for _ in $(seq 1 20); do answers "$PORT" /login && break; sleep 1; done
+      answers "$PORT" /login && ok "app answers on port $PORT" || bad "the app doesn't answer on port $PORT"
+      answers "$ADMIN_PORT" / && ok "admin answers on port $ADMIN_PORT" || bad "the admin app doesn't answer on port $ADMIN_PORT"
+      integ="$(docker exec "$NAME" python -c "import sqlite3; print(sqlite3.connect('file:/data/db/spending.db?mode=ro', uri=True).execute('PRAGMA quick_check').fetchone()[0])" 2>/dev/null)"
+      [ "$integ" = "ok" ] && ok "database integrity ok" || bad "database integrity check failed: ${integ:-no answer}"
+    fi
+    b="$(newest_backup)"
+    if [ -z "$b" ]; then warn "no backups yet (the first runs at the daily backup time; or: savings backup)"
+    else
+      h="$(age_hours "$b")"
+      if [ "$h" -le 26 ]; then ok "last backup $(basename "$b"), ${h}h ago"
+      elif [ "$h" -le 72 ]; then warn "last backup is ${h}h old (expected daily)"
+      else bad "last backup is ${h}h old: backups aren't running"; fi
+    fi
+    free_mb="$(df -Pm "$DATA_DIR" 2>/dev/null | awk 'NR==2 {print $4}')"
+    if [ -n "$free_mb" ]; then
+      if [ "$free_mb" -lt 200 ]; then bad "only ${free_mb} MB free on the data disk"
+      elif [ "$free_mb" -lt 1024 ]; then warn "${free_mb} MB free on the data disk"
+      else ok "$((free_mb / 1024)) GB free on the data disk"; fi
+    fi
+    restart="$(docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' "$NAME" 2>/dev/null)"
+    if [ "$restart" = "no" ] || [ -z "$restart" ]; then warn "it won't start by itself at boot (savings autostart on)"
+    elif command -v systemctl >/dev/null 2>&1 && [ "$(systemctl is-enabled docker 2>/dev/null)" != "enabled" ]; then
+      warn "Docker itself doesn't start at boot (sudo systemctl enable docker)"
+    else ok "starts at boot"; fi
+    if [ "$BAD" -gt 0 ] || [ "$WARN" -gt 0 ]; then
+      [ "$QUIET" = 1 ] || printf '\n%d problem(s), %d warning(s).\n' "$BAD" "$WARN"
+      if [ "$notify" = 1 ] && command -v notify-send >/dev/null 2>&1; then
+        notify-send -a Savings -i dialog-warning "Savings checkup: $((BAD + WARN)) thing(s) to look at" \
+          "$(printf '%s\n' "${PROBLEMS[@]}")" 2>/dev/null || true
+      fi
+    else
+      [ "$QUIET" = 1 ] || printf '\n%sAll good.%s\n' "$G" "$N"
+    fi
+    [ "$BAD" -eq 0 ]; exit $?
+    ;;
+  # ------------------------------------------------------------------ lifecycle
+  start)   need_docker; docker compose up -d && echo "Started: http://localhost:$PORT" ;;
+  stop)    need_docker; docker compose stop && echo "Stopped. (It starts again at boot unless: savings autostart off)" ;;
+  restart) need_docker; docker compose restart && echo "Restarted." ;;
+  logs)    need_docker; if [ "${1:-}" = "-f" ]; then docker logs -f --tail 50 "$NAME" 2>&1; else docker logs --tail 200 "$NAME" 2>&1; fi ;;
+  update)
+    need_docker
+    echo "Rebuilding and restarting Savings $VERSION (your data and settings are kept)…"
+    docker compose up -d --build --remove-orphans && echo "Updated. Checking…" && sleep 3 && exec "$0" check
+    ;;
+  # ------------------------------------------------------------------ backups
+  backup)
+    need_docker; running || die "The server isn't running (savings start)."
+    docker exec "$NAME" python -m app.backup --now && echo "Backup done: $(basename "$(newest_backup)")"
+    ;;
+  backups)
+    list="$(find "$DATA_DIR/backups/db" -maxdepth 1 -name '*.sqlite' -printf '%T@ %s %f\n' 2>/dev/null | sort -rn)"
+    if [ -z "$list" ]; then echo "No backups yet (the first runs at the daily backup time; or: savings backup)."
+    else
+      echo "Database snapshots, newest first:"
+      printf '%s\n' "$list" | while read -r t size f; do
+        printf '  %s  %7s  %s\n' "$(date -d "@${t%.*}" '+%d %b %Y %H:%M')" "$(numfmt --to=iec "$size" 2>/dev/null || echo "$size")" "$f"
+      done
+    fi
+    echo "Restore one with: savings restore <name>   (CSV exports are in $DATA_DIR/backups/csv)"
+    ;;
+  restore)
+    need_docker
+    [ $# -eq 1 ] || { echo "Usage: savings restore <snapshot name>  (list them: savings backups)"; exit 2; }
+    exec "$dir/scripts/restore.sh" "$1"
+    ;;
+  # ------------------------------------------------------------------ automation
+  autostart)
+    need_docker
+    case "${1:-}" in
+      on)  set_env RESTART unless-stopped; docker compose up -d >/dev/null 2>&1 && echo "On: Savings starts with Docker at boot."
+           if command -v systemctl >/dev/null 2>&1 && [ "$(systemctl is-enabled docker 2>/dev/null)" != "enabled" ]; then
+             echo "Docker itself doesn't start at boot yet: sudo systemctl enable docker"; fi ;;
+      off) set_env RESTART no; docker compose up -d >/dev/null 2>&1 && echo "Off: Savings won't start by itself (savings start when you need it)." ;;
+      *)   echo "Usage: savings autostart on|off"; exit 2 ;;
+    esac
+    ;;
+  autocheck)
+    command -v systemctl >/dev/null 2>&1 || die "This needs systemd (user timers)."
+    units="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+    case "${1:-}" in
+      on)
+        mkdir -p "$units"
+        cat > "$units/$UNIT.service" <<EOF
+[Unit]
+Description=Savings daily checkup ($NAME)
+
+[Service]
+Type=oneshot
+ExecStart=$dir/savings check --notify --quiet
+EOF
+        cat > "$units/$UNIT.timer" <<EOF
+[Unit]
+Description=Savings daily checkup ($NAME)
+
+[Timer]
+OnCalendar=daily
+OnBootSec=15min
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target
+EOF
+        systemctl --user daemon-reload && systemctl --user enable --now "$UNIT.timer" >/dev/null 2>&1 \
+          && echo "On: a checkup runs daily (and 15 min after boot); you get a desktop notification only if something's wrong." \
+          || die "Couldn't enable the timer (systemctl --user)."
+        ;;
+      off)
+        systemctl --user disable --now "$UNIT.timer" >/dev/null 2>&1 || true
+        rm -f "$units/$UNIT.service" "$units/$UNIT.timer"; systemctl --user daemon-reload 2>/dev/null || true
+        echo "Off: no daily checkup."
+        ;;
+      *) echo "Usage: savings autocheck on|off"; exit 2 ;;
+    esac
+    ;;
+  # ------------------------------------------------------------------ misc
+  open)    xdg-open "http://localhost:$PORT" >/dev/null 2>&1 & ;;
+  admin)   xdg-open "http://localhost:$ADMIN_PORT" >/dev/null 2>&1 & ;;
+  version) echo "Savings $VERSION" ;;
+  uninstall) exec "$dir/uninstall.sh" "$@" ;;
+  -h|--help|help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) echo "Unknown command: $cmd (see: savings help)" >&2; exit 2 ;;
+esac

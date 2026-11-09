@@ -1,0 +1,39 @@
+name: Bug report
+description: Something in Savings or the widget doesn't work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! **Never paste real spending data, tokens or passwords.**
+        For a security problem, use the private "Report a vulnerability" button on the Security tab instead.
+  - type: dropdown
+    id: part
+    attributes:
+      label: Which part?
+      options: [Savings (the app), Admin app, KDE widget, Installer or release]
+    validations: {required: true}
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Savings version (admin app home page) and, for the widget, the widget version.
+      placeholder: Savings 1.3.0 · widget 1.5.1
+    validations: {required: true}
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations: {required: true}
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: Device and browser (e.g. iPhone Safari home-screen app, PC Brave), and the theme.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional)
+      description: "`savings logs` output around the problem, with anything personal removed."
+      render: text

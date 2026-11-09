@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "macros.html" import error %}
+{% block title %}Request an account{% endblock %}
+{% block content %}
+<div class="auth-box">
+  <h1>Request an account</h1>
+  <p class="muted">The admin approves new accounts. You can log in once yours is approved.</p>
+  {% if errors.form %}<div class="flash flash-error" role="alert">{{ errors.form }}</div>{% endif %}
+  <form method="post" action="/register" class="panel" novalidate>
+    <div class="field{% if errors.username %} has-error{% endif %}">
+      <label for="f-username">Username</label>
+      <input id="f-username" name="username" required autocomplete="username" autocapitalize="none"
+             autocorrect="off" spellcheck="false" maxlength="32" value="{{ values.get('username', '') }}">
+      {{ error(errors, "username") }}
+      <p class="muted small">Lowercase letters, digits, dot, dash or underscore. 3–32 characters.</p>
+    </div>
+    <div class="field{% if errors.display_name %} has-error{% endif %}">
+      <label for="f-display_name">Your name</label>
+      <input id="f-display_name" name="display_name" required maxlength="60" autocomplete="name"
+             value="{{ values.get('display_name', '') }}">
+      {{ error(errors, "display_name") }}
+    </div>
+    <div class="field{% if errors.password %} has-error{% endif %}">
+      <label for="f-password">Password</label>
+      <input id="f-password" name="password" type="password" required minlength="10" autocomplete="new-password">
+      <label for="f-confirm" style="margin-top: 8px">Repeat password</label>
+      <input id="f-confirm" name="confirm" type="password" required autocomplete="new-password">
+      {{ error(errors, "password") }}
+      <p class="muted small">At least 10 characters.</p>
+    </div>
+    <button type="submit" class="btn-primary">Send request</button>
+  </form>
+  <p class="auth-alt"><a href="/login">Back to log in</a></p>
+</div>
+{% endblock %}

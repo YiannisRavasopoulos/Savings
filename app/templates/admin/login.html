@@ -1,0 +1,15 @@
+{% extends "admin/base.html" %}
+{% block title %}Log in{% endblock %}
+{% block content %}
+<div class="adm-narrow">
+  <h1>Admin log in</h1>
+  {% if error %}<div class="adm-flash adm-flash-error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="/login" class="adm-card">
+    <label for="f-username">Username</label>
+    <input id="f-username" name="username" autocomplete="username" autocapitalize="none" value="{{ values.get('username', '') }}" autofocus>
+    <label for="f-password">Password</label>
+    <input id="f-password" name="password" type="password" autocomplete="current-password">
+    <button type="submit" class="adm-btn adm-primary">Log in</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "admin/base.html" %}
+{% from "macros.html" import error %}
+{% block title %}First-time setup{% endblock %}
+{% block content %}
+<div class="adm-narrow">
+  <h1>Create the admin account</h1>
+  <p>This account manages users. It is separate from any user account and has no budget of its own.
+    The admin pages only open on this PC.</p>
+  <form method="post" action="/setup" class="adm-card" novalidate>
+    <label for="f-username">Admin username</label>
+    <input id="f-username" name="username" autocomplete="username" autocapitalize="none" value="{{ values.get('username', 'admin') }}">
+    {{ error(errors, "username") }}
+    <label for="f-password">Password</label>
+    <input id="f-password" name="password" type="password" autocomplete="new-password">
+    <label for="f-confirm">Repeat password</label>
+    <input id="f-confirm" name="confirm" type="password" autocomplete="new-password">
+    {{ error(errors, "password") }}
+    <p class="adm-muted">At least 10 characters. If you forget it, see the README (“Reset the admin password”).</p>
+    <button type="submit" class="adm-btn adm-primary">Create admin account</button>
+  </form>
+</div>
+{% endblock %}

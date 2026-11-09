@@ -1,0 +1,8 @@
+{% from "macros.html" import input, textarea %}
+<form method="post" action="{{ action }}" class="panel" novalidate>
+  {{ input("date", "Date", values, errors, type="date", attrs="required") }}
+  {{ input("description", "Description", values, errors, attrs='required maxlength="200" autocomplete="off"') }}
+  {{ input("amount", "Amount (€)", values, errors, attrs='inputmode="decimal" required autocomplete="off" placeholder="0.00"') }}
+  {{ textarea("notes", "Notes", values, errors) }}
+  <button type="submit" class="btn-primary">{{ submit }}</button>
+</form>

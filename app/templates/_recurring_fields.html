@@ -1,0 +1,32 @@
+{# Fields shared by "set up" and "edit". schedule=True shows how often + first payment. #}
+{% from "macros.html" import input, textarea, error %}
+{{ input("description", "Description", values, errors, attrs='required maxlength="200" autocomplete="off" placeholder="Rent, Netflix, phone bill…"') }}
+<div class="field{% if errors.get('category_id') %} has-error{% endif %}">
+  <label for="f-category_id">Category</label>
+  <select id="f-category_id" name="category_id" required>
+    <option value="" disabled{% if not values.category_id %} selected{% endif %}>Choose…</option>
+    {% for c in categories|rejectattr("is_joint") %}
+    <option value="{{ c.id }}"{% if values.category_id == c.id|string %} selected{% endif %}>{{ c.name }}</option>
+    {% endfor %}
+    {% set shared = categories|selectattr("is_joint")|list %}
+    {% if shared %}<optgroup label="Shared">{% for c in shared %}
+    <option value="{{ c.id }}" class="option-joint"{% if values.category_id == c.id|string %} selected{% endif %}>◆ {{ c.name }}</option>
+    {% endfor %}</optgroup>{% endif %}
+  </select>
+  {{ error(errors, "category_id") }}
+</div>
+{{ input("amount", "Amount each time (€)", values, errors, attrs='inputmode="decimal" required autocomplete="off" placeholder="0.00"') }}
+{% if schedule %}
+<div class="two-col">
+  <div class="field{% if errors.get('every_months') %} has-error{% endif %}">
+    <label for="f-every_months">How often</label>
+    <select id="f-every_months" name="every_months">
+      {% for n, label in frequencies.items() %}<option value="{{ n }}"{% if values.get("every_months") == n|string %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    {{ error(errors, "every_months") }}
+  </div>
+  {{ input("start_date", "First payment", values, errors, type="date", attrs="required") }}
+</div>
+{% endif %}
+{{ input("end_date", "Last payment (optional)", values, errors, type="date") }}
+{{ textarea("notes", "Notes", values, errors) }}

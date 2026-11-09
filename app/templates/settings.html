@@ -1,0 +1,430 @@
+{% extends "base.html" %}
+{% from "macros.html" import error %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+{% if saved %}<div class="flash" role="status">Saved.</div>{% endif %}
+{% if ended is not none %}<div class="flash" role="status">Logged out {{ ended }} other device{{ "" if ended == "1" else "s" }}.</div>{% endif %}
+{% if errors and not reopen %}<div class="flash flash-error" role="alert">Not saved: see the message below.</div>{% endif %}
+
+<h2>Account</h2>
+<div class="panel">
+  <p>Username: <strong>{{ user.username }}</strong></p>
+  <form method="post" action="/profile/name">
+    <div class="field{% if errors.display_name %} has-error{% endif %}">
+      <label for="f-display_name">Display name</label>
+      <div class="name-row">
+        <input id="f-display_name" name="display_name" maxlength="60" required
+               value="{{ values.get('display_name', user.display_name) }}">
+        <button type="submit" class="btn-small">Save</button>
+      </div>
+      {{ error(errors, "display_name") }}
+    </div>
+  </form>
+  <a class="btn" href="/profile/password">Change password</a>
+</div>
+
+<h2 id="income">Regular income</h2>
+<div class="panel">
+  {% if income_msg %}<div class="flash" role="status">{{ income_msg }}</div>{% endif %}
+  {% set add_vals = values if not reopen else {} %}
+  {% set add_errs = errors if not reopen else {} %}
+  {% if incomes %}
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Effective from</th><th class="num">Monthly amount</th><th></th></tr></thead>
+    <tbody>
+    {% for i in incomes %}
+      <tr>
+        <td>{{ i.effective_from|day }}</td><td class="num">{{ i.amount_cents|eur }}</td>
+        <td class="row-actions">
+          <button type="button" class="btn-small" data-open="dlg-income-edit-{{ i.id }}">Edit</button>
+          <button type="button" class="btn-small btn-danger" data-open="dlg-income-delete-{{ i.id }}">Delete</button>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="muted">No regular income set yet.</p>{% endif %}
+  <p class="muted">A period uses the latest amount whose date is on or before the period’s last day,
+    so a new amount changes that period and later ones, never earlier ones.</p>
+  <form method="post" action="/profile/regular-income">
+    <div class="two-col">
+      <div class="field{% if add_errs.income_amount %} has-error{% endif %}">
+        <label for="f-income_amount">New amount (€)</label>
+        <input id="f-income_amount" name="income_amount" inputmode="decimal" required autocomplete="off"
+               value="{{ add_vals.get('income_amount', '') }}">
+        {{ error(add_errs, "income_amount") }}
+      </div>
+      <div class="field{% if add_errs.income_from %} has-error{% endif %}">
+        <label for="f-income_from">Effective from</label>
+        <input id="f-income_from" name="income_from" type="date" required
+               value="{{ add_vals.get('income_from', today) }}">
+        {{ error(add_errs, "income_from") }}
+      </div>
+    </div>
+    <button type="submit">Add income amount</button>
+  </form>
+</div>
+
+{% for i in incomes %}
+{% set dlg = "dlg-income-edit-%d"|format(i.id) %}
+{% set mine = reopen == dlg %}
+<dialog id="{{ dlg }}" aria-labelledby="{{ dlg }}-t">
+  <form method="post" action="/profile/regular-income/{{ i.id }}/edit" novalidate>
+    <h2 id="{{ dlg }}-t">Edit income amount</h2>
+    <div class="field">
+      <label for="ie-amount-{{ i.id }}">Monthly amount (€)</label>
+      <input id="ie-amount-{{ i.id }}" name="income_amount" inputmode="decimal" autocomplete="off"
+             value="{{ values.get('income_amount') if mine else i.amount_cents|amount_input }}">
+      {% if mine %}{{ error(errors, "income_amount") }}{% endif %}
+    </div>
+    <div class="field">
+      <label for="ie-from-{{ i.id }}">Effective from</label>
+      <input id="ie-from-{{ i.id }}" name="income_from" type="date"
+             value="{{ values.get('income_from') if mine else i.effective_from }}">
+      {% if mine %}{{ error(errors, "income_from") }}{% endif %}
+    </div>
+    <p class="muted small">Every period ending on or after this date (until your next amount) uses it.</p>
+    <div class="dialog-actions">
+      <button type="button" data-close>Cancel</button>
+      <button type="submit" class="btn-accent">Save</button>
+    </div>
+  </form>
+</dialog>
+
+{% set older = incomes[loop.index] if loop.index < incomes|length else none %}
+{% set newer = incomes[loop.index0 - 1] if loop.index0 > 0 else none %}
+<dialog id="dlg-income-delete-{{ i.id }}" class="dialog-danger" aria-labelledby="dlg-income-delete-{{ i.id }}-t">
+  <form method="post" action="/profile/regular-income/{{ i.id }}/delete">
+    <h2 id="dlg-income-delete-{{ i.id }}-t">Delete {{ i.amount_cents|eur }} from {{ i.effective_from|day }}?</h2>
+    <p>Periods that used it will
+      {% if older %}use <strong>{{ older.amount_cents|eur }}</strong> (from {{ older.effective_from|day }}) instead{% else %}have <strong>no regular income (€0)</strong>{% endif %}{% if newer %},
+      until {{ newer.effective_from|day }} when {{ newer.amount_cents|eur }} starts{% endif %}.
+      Their totals and “left over” change accordingly.</p>
+    <div class="dialog-actions">
+      <button type="button" data-close>Cancel</button>
+      <button type="submit" class="btn-danger-solid">Delete</button>
+    </div>
+  </form>
+</dialog>
+{% endfor %}
+
+<h2>Categories and budgets</h2>
+<div class="panel">
+  <p>Add, edit, reorder, archive or delete your categories and set their budgets.</p>
+  <a class="btn" href="/categories">Manage categories &rsaquo;</a>
+</div>
+
+<h2>Recurring expenses</h2>
+<div class="panel">
+  <p>Rent, subscriptions and bills that repeat: each payment is added to your log automatically on its date.</p>
+  <a class="btn" href="/recurring">Manage recurring expenses &rsaquo;</a>
+</div>
+
+<h2>Budget period</h2>
+<form method="post" action="/profile/start-day" class="panel">
+  <div class="field{% if errors.start_day %} has-error{% endif %}">
+    <label for="f-start_day">Period start day (1–28)</label>
+    <input id="f-start_day" name="start_day" type="number" min="1" max="28" required
+           value="{{ values.get('start_day', user.period_start_day) }}" style="max-width: 8em">
+    {{ error(errors, "start_day") }}
+    <p class="muted">With start day S, the period “November” runs from day S of October to day S−1 of November.
+      With 1 it is the calendar month. Changing this re-groups all past entries.</p>
+  </div>
+  <button type="submit">Save start day</button>
+</form>
+
+<h2>Appearance</h2>
+<form method="post" action="/profile/theme" class="panel">
+  <label for="f-theme">Theme</label>
+  <div class="theme-row">
+    <select id="f-theme" name="theme">
+      <option value="auto"{% if theme == "auto" %} selected{% endif %}>Auto (follow system)</option>
+      {% for t in themes %}
+      <option value="{{ t }}"{% if theme == t %} selected{% endif %}>{{ t|replace("-", " ")|title }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Save theme</button>
+  </div>
+  {{ error(errors, "theme") }}
+  <p class="muted">Auto uses Dark when your phone or computer is in dark mode.</p>
+</form>
+<div class="panel">
+  <label class="choice check-row" for="f-animations">
+    <input type="checkbox" id="f-animations" checked>
+    <span><strong>Animations</strong> <span class="muted small">— the splash when the home-screen app opens, page slides,
+      and the red / green effects when you log money. Saved on this device only.</span></span>
+  </label>
+  <div class="field splash-choice">
+    <label for="f-splash">Splash screen <span class="muted small">(when the home-screen app opens)</span></label>
+    <div class="theme-row">
+      <select id="f-splash">
+        <option value="rotate">Rotate daily</option>
+        <option value="shuffle">Shuffle daily</option>
+        <optgroup label="Always the same">
+          <option value="tumble">Tumbling letters</option>
+          <option value="coins">Coin rain</option>
+          <option value="piggy">Filling up</option>
+          <option value="slots">Slot machine</option>
+          <option value="typewriter">Typewriter</option>
+          <option value="chart">Rising chart</option>
+          <option value="vault">Vault</option>
+        </optgroup>
+      </select>
+      <button type="button" id="splash-play">Play</button>
+    </div>
+    <p class="muted small">Rotate and shuffle change at midnight. From 24 December to 1 January a Christmas splash
+      shows, and on the first day of each budget period the Vault, each with a greeting.</p>
+  </div>
+  <p class="muted small" id="anim-reduced" hidden>Your device is set to reduce motion, so animations stay off here.</p>
+  <script>
+    (function () {
+      var box = document.getElementById("f-animations"), root = document.documentElement;
+      var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var off = false;
+      try { off = localStorage.getItem("savings-animations") === "off"; } catch (e) {}
+      box.checked = !off && !reduced;
+      if (reduced) { box.disabled = true; document.getElementById("anim-reduced").hidden = false; }
+      box.addEventListener("change", function () {
+        try { localStorage.setItem("savings-animations", box.checked ? "on" : "off"); } catch (e) {}
+        root.classList.toggle("no-anim", !box.checked);
+        if (box.checked && window.savingsFx) window.savingsFx.play("heal", 100);   // a little preview
+      });
+      var sel = document.getElementById("f-splash");
+      try { sel.value = localStorage.getItem("savings-splash-choice") || "rotate"; } catch (e) {}
+      if (!sel.value) sel.value = "rotate";
+      sel.addEventListener("change", function () {
+        try { localStorage.setItem("savings-splash-choice", sel.value); } catch (e) {}
+      });
+      document.getElementById("splash-play").addEventListener("click", function () {
+        // rotate / shuffle: play today's pick (special days included)
+        var pick = window.SAVINGS_SPLASHES.indexOf(sel.value) >= 0 ? { name: sel.value }
+          : window.savingsPickSplash(new Date(), {{ (user.period_start_day if user else 0)|int }});
+        if (window.savingsSplash) window.savingsSplash.play(pick.name, pick.note);
+      });
+    })();
+  </script>
+</div>
+
+<div class="panel" id="device-look">
+  <p class="muted small">These are saved on this device only.</p>
+  <div class="field">
+    <label for="f-text">Text size</label>
+    <select id="f-text">
+      <option value="small">Small</option>
+      <option value="normal">Normal</option>
+      <option value="large">Large</option>
+    </select>
+  </div>
+  <label class="choice check-row" for="f-compact">
+    <input type="checkbox" id="f-compact">
+    <span><strong>Compact lists</strong> <span class="muted small">— tighter rows in the Log, Month and Year tables, and smaller panels.</span></span>
+  </label>
+  <label class="choice check-row" for="f-privacy">
+    <input type="checkbox" id="f-privacy">
+    <span><strong>Privacy mode</strong> <span class="muted small">— amounts and charts are blurred until you tap them. Handy when
+      someone's looking over your shoulder.</span></span>
+  </label>
+  <div class="field">
+    <label>Home layout</label>
+    <ul class="home-layout" id="home-layout"></ul>
+    <button type="button" class="btn-small" id="home-layout-reset">Reset to default</button>
+  </div>
+  <script>
+    (function () {
+      var KEY = "savings-prefs", root = document.documentElement;
+      var SECTIONS = [["hero", "Left over"], ["stats", "Income · Spent · Budget used"], ["where", "Where it went"],
+                      ["budgets", "Budgets"], ["trend", "Last 6 months"], ["recent", "Recent"]];
+      function load() { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) { return {}; } }
+      function save(p) { try { localStorage.setItem(KEY, JSON.stringify(p)); } catch (e) {} }
+      var p = load();
+
+      var text = document.getElementById("f-text");
+      text.value = p.text || "normal";
+      text.addEventListener("change", function () {
+        p.text = text.value; save(p);
+        root.classList.remove("text-small", "text-large");
+        if (text.value !== "normal") root.classList.add("text-" + text.value);
+      });
+      [["f-compact", "compact"], ["f-privacy", "privacy"]].forEach(function (pair) {
+        var box = document.getElementById(pair[0]);
+        box.checked = !!p[pair[1]];
+        box.addEventListener("change", function () {
+          p[pair[1]] = box.checked; save(p);
+          root.classList.toggle(pair[1], box.checked);
+        });
+      });
+
+      // Home layout: order (↑ ↓) and which sections show
+      var list = document.getElementById("home-layout");
+      function order() {
+        var names = SECTIONS.map(function (x) { return x[0]; });
+        var saved = (p.homeOrder || []).filter(function (n) { return names.indexOf(n) >= 0; });
+        return saved.concat(names.filter(function (n) { return saved.indexOf(n) < 0; }));
+      }
+      function render() {
+        var o = order(), hidden = p.homeHidden || [];
+        list.innerHTML = "";
+        o.forEach(function (name, i) {
+          var label = SECTIONS.filter(function (x) { return x[0] === name; })[0][1];
+          var li = document.createElement("li");
+          li.innerHTML = '<label class="home-layout-name"><input type="checkbox"> <span></span></label>' +
+            '<button type="button" class="btn-small" aria-label="Move up">↑</button>' +
+            '<button type="button" class="btn-small" aria-label="Move down">↓</button>';
+          li.querySelector("span").textContent = label;
+          var box = li.querySelector("input");
+          box.checked = hidden.indexOf(name) < 0;
+          box.addEventListener("change", function () {
+            var h = (p.homeHidden || []).filter(function (n) { return n !== name; });
+            if (!box.checked) h.push(name);
+            p.homeHidden = h; save(p);
+          });
+          var btns = li.querySelectorAll("button");
+          btns[0].disabled = i === 0;
+          btns[1].disabled = i === o.length - 1;
+          btns[0].addEventListener("click", function () { move(i, -1); });
+          btns[1].addEventListener("click", function () { move(i, 1); });
+          list.appendChild(li);
+        });
+      }
+      function move(i, d) {
+        var o = order(), t = o[i]; o[i] = o[i + d]; o[i + d] = t;
+        p.homeOrder = o; save(p); render();
+        list.querySelectorAll("button")[(i + d) * 2 + (d < 0 ? 0 : 1)].focus();
+      }
+      document.getElementById("home-layout-reset").addEventListener("click", function () {
+        delete p.homeOrder; delete p.homeHidden; save(p); render();
+      });
+      render();
+    })();
+  </script>
+</div>
+
+<h2 id="sessions">Logged-in devices</h2>
+<div class="panel">
+  <ul class="sessions">
+  {% for s in sessions %}
+    <li>{{ (s.user_agent or "Unknown browser")[:80] }}{% if s.current %} <span class="tag">this device</span>{% endif %}
+      <div class="muted small">Last seen {{ s.last_seen_at[:10]|day }} · logged in {{ s.created_at[:10]|day }}</div></li>
+  {% endfor %}
+  </ul>
+  {% if sessions|length > 1 %}
+  <form method="post" action="/profile/sessions/end-others">
+    <button type="submit">Log out all other devices</button>
+  </form>
+  {% endif %}
+</div>
+
+<h2 id="widget">KDE widget</h2>
+<div class="panel">
+  <p>See what's left, your budgets and charts from the panel of any KDE Plasma PC on your network.
+    Its <em>Open Savings</em> button opens this website in your browser, which stays logged in as usual.
+    Each widget connects with its own token, which can only read your summary.</p>
+  {% if revoked %}<div class="flash" role="status">Token revoked. That widget can't connect any more.</div>{% endif %}
+  {% if new_token %}
+  <div class="token-box" role="status">
+    <p><strong>Token for “{{ new_token.name }}”</strong>. Copy it now: it's shown only this once.
+      (Missed it? Revoke it and create a new one.)</p>
+    <input type="text" readonly value="{{ new_token.token }}" id="new-token" onclick="this.select()" aria-label="New widget token">
+    <button type="button" onclick="navigator.clipboard && navigator.clipboard.writeText(document.getElementById('new-token').value); this.textContent = 'Copied';">Copy</button>
+    <p class="muted small">In the widget: right-click → <em>Configure Savings…</em> → paste it, with the server address
+      <code>{{ server_url }}</code>.</p>
+  </div>
+  {% endif %}
+  <ol class="small widget-steps">
+    <li>Install the widget on the PC: it's a separate download, <code>savings-widget-X.Y.Z.tar.gz</code>.
+      Unpack it and run its <code>./install.sh</code>.</li>
+    <li>Add <em>Savings</em> to your panel or desktop, and in its settings enter the server address
+      <code>{{ server_url }}</code> and a token from below.</li>
+  </ol>
+  <form method="post" action="/profile/widget-tokens#widget" class="theme-row">
+    <input type="text" name="name" maxlength="60" placeholder="Device name, e.g. Office PC" aria-label="Device name"
+           value="{{ values.get('token_name', '') }}" autocomplete="off">
+    <button type="submit">Create token</button>
+  </form>
+  {{ error(errors, "token_name") }}
+  {% if widget_tokens %}
+  <p class="muted small">Tokens are shown only when they're created. Lost one? Revoke it and create a new one for that PC.</p>
+  <ul class="sessions">
+  {% for t in widget_tokens %}
+    <li><strong>{{ t.name }}</strong>
+      <div class="muted small">Created {{ t.created_at[:10]|day }} · {% if t.last_used_at %}last used {{ t.last_used_at[:10]|day }}{% else %}not used yet{% endif %}</div>
+      <form method="post" action="/profile/widget-tokens/{{ t.id }}/revoke" class="inline"
+            onsubmit="return confirm('Revoke this token? The widget using it stops working.');">
+        <button type="submit" class="btn-small btn-danger">Revoke</button></form></li>
+  {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+
+<h2>Your data</h2>
+<div class="panel">
+  <p>A zip with your own data as CSV files, one per table (amounts in cents).</p>
+  <a class="btn" href="/export.zip">Download my data</a>
+  <p>Bring in past expenses from a bank export or spreadsheet (CSV). You see a preview before anything is saved.</p>
+  <a class="btn" href="/import">Import expenses from CSV &rsaquo;</a>
+</div>
+<h2 id="request">Request from admin</h2>
+<div class="panel">
+  {% if sent %}<div class="flash" role="status">Sent. The admin will see your message.</div>{% endif %}
+  {% if errors.request_form %}<div class="flash flash-error" role="alert">{{ errors.request_form }}</div>{% endif %}
+  <p class="muted">Need a change, found a problem or have an idea? Send the admin a short message.</p>
+  <form method="post" action="/request" novalidate id="request-form" data-delete-text="{{ delete_text }}">
+    <div class="field{% if errors.subject %} has-error{% endif %}">
+      <label for="f-subject">Subject</label>
+      <select id="f-subject" name="subject" required
+              class="{{ 'subject-danger' if values.get('subject') in danger_subjects }}">
+        <option value="" disabled{% if not values.get('subject') %} selected{% endif %}>Choose…</option>
+        {% for key, label in subjects.items() %}
+        <option value="{{ key }}"{% if key in danger_subjects %} class="option-danger"{% endif %}{% if values.get('subject') == key %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      {{ error(errors, "subject") }}
+      <p class="danger-note" id="delete-note"{% if values.get('subject') != "delete_account" %} hidden{% endif %}>
+        This asks the admin to delete your account and <strong>all of your data</strong>. It can't be undone.
+        Consider <a href="/export.zip">downloading your data</a> first.</p>
+    </div>
+    <div class="field{% if errors.message %} has-error{% endif %}">
+      <label for="f-message">Message</label>
+      <textarea id="f-message" name="message" rows="4" maxlength="1000" required>{{ values.get('message', '') }}</textarea>
+      {{ error(errors, "message") }}
+      <p class="muted small">Up to 1000 characters.</p>
+    </div>
+    <button type="submit">Send to admin</button>
+  </form>
+</div>
+
+<form method="post" action="/logout" class="logout-form">
+  <button type="submit">Log out</button>
+</form>
+
+{% if alert %}
+<dialog id="dlg-alert" class="dialog-danger" role="alertdialog" aria-labelledby="dlg-alert-title" data-autoshow>
+  <h2 id="dlg-alert-title">Can't do that</h2>
+  <p>{{ alert }}</p>
+  <div class="dialog-actions"><button type="button" class="btn-accent" data-close>OK</button></div>
+</dialog>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // "Delete my account": red subject box, warning, and a pre-filled message (never overwrites typing).
+  (function () {
+    var form = document.getElementById("request-form");
+    if (!form) return;
+    var subject = form.querySelector("#f-subject"), message = form.querySelector("#f-message");
+    var note = document.getElementById("delete-note"), text = form.getAttribute("data-delete-text");
+    subject.addEventListener("change", function () {
+      var del = subject.value === "delete_account";
+      subject.classList.toggle("subject-danger", del);
+      note.hidden = !del;
+      if (del && !message.value.trim()) message.value = text;
+      else if (!del && message.value === text) message.value = "";
+    });
+  })();
+</script>
+<script src="/static/dialogs.js?v={{ static_v }}" data-reopen="{{ reopen or '' }}"></script>
+{% endblock %}

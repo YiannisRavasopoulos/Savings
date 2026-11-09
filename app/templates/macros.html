@@ -1,0 +1,58 @@
+{% macro error(errors, name) -%}
+  {% if errors.get(name) %}<div class="error" id="err-{{ name }}">{{ errors[name] }}</div>{% endif %}
+{%- endmacro %}
+
+{% macro input(name, label, values, errors, type="text", attrs="") -%}
+<div class="field{% if errors.get(name) %} has-error{% endif %}">
+  <label for="f-{{ name }}">{{ label }}</label>
+  <input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ values.get(name, '') }}"
+         {% if errors.get(name) %}aria-invalid="true" aria-describedby="err-{{ name }}"{% endif %} {{ attrs|safe }}>
+  {{ error(errors, name) }}
+</div>
+{%- endmacro %}
+
+{% macro textarea(name, label, values, errors) -%}
+<div class="field{% if errors.get(name) %} has-error{% endif %}">
+  <label for="f-{{ name }}">{{ label }}</label>
+  <textarea id="f-{{ name }}" name="{{ name }}" rows="2">{{ values.get(name, '') }}</textarea>
+  {{ error(errors, name) }}
+</div>
+{%- endmacro %}
+
+{# The period picker: ‹ November 2026 ▾ › with the date range under it. Tapping the name opens a
+   12-month grid (‹ year ›) to jump to any period; "This month" goes back to the current one.
+   `extra` (e.g. "&category=3") is kept on every link. `hidden` is accepted for older callers. #}
+{% macro period_nav(path, p, extra="", hidden={}) -%}
+<div class="pp">
+  <a class="pp-step" href="{{ path }}?period={{ p.prev }}{{ extra }}" aria-label="Previous period">&lsaquo;</a>
+  <details class="pp-pick" data-menu>
+    <summary class="pp-label" aria-label="Choose a period ({{ p.label }})"><strong>{{ p.label }}</strong><span class="pp-caret" aria-hidden="true">▾</span></summary>
+    <div class="pp-panel" role="dialog" aria-label="Choose a period">
+      {% for y in p.years %}
+      <div class="pp-year" data-year="{{ y }}"{% if y != p.year %} hidden{% endif %}>
+        <div class="pp-year-head">
+          <button type="button" class="pp-yr" data-pp-year="-1" aria-label="Previous year"{% if loop.first %} disabled{% endif %}>&lsaquo;</button>
+          <strong>{{ y }}</strong>
+          <button type="button" class="pp-yr" data-pp-year="1" aria-label="Next year"{% if loop.last %} disabled{% endif %}>&rsaquo;</button>
+        </div>
+        <div class="pp-grid">
+          {% for m in range(1, 13) %}{% set k = "%04d-%02d"|format(y, m) %}
+          <a href="{{ path }}?period={{ k }}{{ extra }}" class="pp-m{{ ' is-sel' if k == p.key }}{{ ' is-now' if k == p.current }}"{% if k == p.key %} aria-current="true"{% endif %}>{{ month_abbr[m] }}</a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      <a class="pp-now" href="{{ path }}?period={{ p.current }}{{ extra }}">This month</a>
+    </div>
+  </details>
+  <a class="pp-step" href="{{ path }}?period={{ p.next }}{{ extra }}" aria-label="Next period">&rsaquo;</a>
+</div>
+<p class="pp-range muted">{{ p.range }}{% if p.key != p.current %} · <a href="{{ path }}?period={{ p.current }}{{ extra }}">This month</a>{% endif %}</p>
+{%- endmacro %}
+
+{% macro delete_button(action, what) -%}
+<form method="post" action="{{ action }}" class="inline"
+      onsubmit="return confirm('Delete this {{ what }}? This cannot be undone.');">
+  <button type="submit" class="btn-small btn-danger">Delete</button>
+</form>
+{%- endmacro %}

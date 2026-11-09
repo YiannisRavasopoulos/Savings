@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+{% set s = d.s %}
+<div class="dash-head">
+  <h1>{{ d.label }}</h1>
+  <a href="/month?period={{ d.key }}" class="muted">{{ s.range }} &rsaquo;</a>
+</div>
+
+{% include "_reset_banner.html" %}
+{% include "_invites.html" %}
+
+<div class="home-sections" id="home-sections">
+<section class="hero{% if s.left < 0 %} hero-neg{% endif %}" data-home="hero">
+  <div class="label">Left over</div>
+  <div class="hero-value" data-cents="{{ s.left }}">{{ s.left|eur }}</div>
+  <div class="hero-sub">
+    {% if s.left > 0 %}{{ d.per_day|eur }} a day for the {{ d.days_left }} day{{ "" if d.days_left == 1 else "s" }} left
+    {% elif s.left < 0 %}Over by {{ (-s.left)|eur }} with {{ d.days_left }} day{{ "" if d.days_left == 1 else "s" }} left
+    {% else %}{{ d.days_left }} day{{ "" if d.days_left == 1 else "s" }} left{% endif %}
+  </div>
+  <div class="bar period-bar" role="img" aria-label="Day {{ d.days_total - d.days_left + 1 }} of {{ d.days_total }}">
+    <span style="width: {{ ((d.days_total - d.days_left + 1) / d.days_total * 100)|round(1) }}%"></span>
+  </div>
+</section>
+
+<div class="cards cards-3" data-home="stats">
+  <div class="card"><div class="label">Income</div><div class="value">{{ s.income|eur }}</div></div>
+  <div class="card"><div class="label">Spent</div><div class="value">{{ s.spent|eur }}</div></div>
+  <div class="card"><div class="label">Budget used</div>
+    <div class="value{% if s.budget_status %} {{ s.budget_status }}-text{% endif %}">{{ s.budget_pct|pct }}</div>
+  </div>
+</div>
+
+<section class="panel" data-home="where">
+  <h2>Where it went</h2>
+  {% if d.charts.categories.amounts %}
+  <div class="chart-box chart-doughnut"><canvas id="chart-categories" aria-label="Spending by category"></canvas></div>
+  {% else %}
+  <p class="muted">No spending yet this period.</p>
+  <a class="btn" href="/add">Add an expense</a>
+  {% endif %}
+</section>
+
+{% if d.watch %}
+<section class="panel" data-home="budgets">
+  <h2>Budgets</h2>
+  <ul class="watch">
+  {% for c in d.watch %}
+    <li{% if c.joint %} class="is-joint"{% endif %}>
+      <a href="/log?period={{ d.key }}&category={{ c.id }}" class="watch-name">{% if c.joint %}<span class="joint-dot" aria-hidden="true"></span>{% endif %}{{ c.name }}</a>
+      <span class="watch-amount">{{ c.spent|eur }} <span class="muted">/ {{ c.budget|eur }}</span></span>
+      <div class="bar"><span class="{{ c.status }}" style="width: {{ [c.pct, 100]|min|round(1) }}%"></span></div>
+    </li>
+  {% endfor %}
+  </ul>
+  <a href="/month?period={{ d.key }}">All categories &rsaquo;</a>
+</section>
+{% endif %}
+
+<section class="panel" data-home="trend">
+  <h2>Last 6 months</h2>
+  <div class="chart-box"><canvas id="chart-trend" aria-label="Spent versus income, last 6 periods"></canvas></div>
+  <a href="/year">Year view &rsaquo;</a>
+</section>
+
+<section class="panel" data-home="recent">
+  <h2>Recent</h2>
+  {% if d.recent %}
+  <ul class="recent">
+  {% for r in d.recent %}
+    <li class="{{ 'is-joint' if r.is_joint }}{{ ' is-future' if r.future }}">
+      <a href="{{ '/expenses/%d/edit'|format(r.id) if r.mine else '/log' }}">
+        <span class="recent-main"><strong>{{ r.description }}{% if r.future %} <span class="tag tag-future" title="Dated after today">future</span>{% endif %}</strong><span class="muted">{% if r.is_joint %}<span class="joint-dot" aria-hidden="true"></span>{% endif %}{{ r.category }} · {{ r.date|day }}{% if r.is_joint %} · <span class="joint-text">paid by {{ "you" if r.mine else r.paid_by }}</span>{% endif %}</span></span>
+        <span class="recent-amount">{{ r.my_cost|eur }}</span>
+      </a>
+    </li>
+  {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">Nothing logged yet.</p>
+  {% endif %}
+  <a href="/log">Full log &rsaquo;</a>
+</section>
+</div>
+<script>
+  (function () {   // Home layout (Settings → Appearance, this device): order and which sections show
+    var p = {};
+    try { p = JSON.parse(localStorage.getItem("savings-prefs") || "{}"); } catch (e) {}
+    var order = p.homeOrder || [], hidden = p.homeHidden || [];
+    document.querySelectorAll("#home-sections > [data-home]").forEach(function (el, natural) {
+      var name = el.getAttribute("data-home"), i = order.indexOf(name);
+      el.style.order = i >= 0 ? i : 100 + natural;      // not in the saved order: after, as they come
+      if (hidden.indexOf(name) >= 0) el.hidden = true;
+    });
+  })();
+</script>
+
+<script type="application/json" id="dashboard-data">{{ d.charts|tojson }}</script>
+{% endblock %}
+{% block scripts %}
+<script src="/static/dialogs.js?v={{ static_v }}"></script>
+<script src="/static/vendor/chart.umd.min.js?v={{ static_v }}"></script>
+<script src="/static/app.js?v={{ static_v }}"></script>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Trends{% endblock %}
+{% macro signed(cents) %}{{ "+" if cents > 0 else "" }}{{ cents|eur }}{% endmacro %}
+{% macro notyet(text) %}<p class="muted not-yet">{{ text }}</p>{% endmacro %}
+{% block content %}
+<div class="dash-head">
+  <h1>Trends</h1>
+  <nav class="segmented" aria-label="Range">
+    {% for r in t.ranges %}<a href="/trends?n={{ r }}"{% if r == t.n %} class="active" aria-current="true"{% endif %}>{{ r }} mo</a>{% endfor %}
+  </nav>
+</div>
+
+{% if t.empty %}
+<div class="panel">
+  <p>Trends appear once you've logged some expenses. Most sections need two or three months of data.</p>
+  <a class="btn" href="/add">Add an expense</a>
+</div>
+{% else %}
+<p class="muted">{{ t.range }} · {{ t.current_label }} is the current period, shown as “so far” and left out of averages.</p>
+
+{# 2. savings rate #}
+<section class="panel">
+  <h2>Savings rate</h2>
+  <p class="muted small">Left over as a share of income, per period.</p>
+  {% if t.savings.enough %}
+  <div class="trend-stats">
+    <div><span class="muted small">Average</span><strong class="{{ 'neg' if t.savings.avg < 0 }}">{{ t.savings.avg }}%</strong></div>
+    {% if t.savings.current is not none %}<div><span class="muted small">{{ t.current_label }} so far</span><strong class="{{ 'neg' if t.savings.current < 0 }}">{{ t.savings.current }}%</strong></div>{% endif %}
+  </div>
+  <div class="chart-box"><canvas id="chart-savings" aria-label="Savings rate per period"></canvas></div>
+  {% else %}{{ notyet("Needs at least two finished periods with income. Set your regular income in Settings.") }}{% endif %}
+</section>
+
+{# 3. category trends #}
+<section class="panel">
+  <h2>Categories over time</h2>
+  <p class="muted small">Your cost per category per period. Tap a name in the legend to show or hide it; the 5 biggest are shown first.</p>
+  {% if t.categories.enough and t.categories.series %}
+  <div class="chart-box chart-tall"><canvas id="chart-categories-trend" aria-label="Spending per category per period"></canvas></div>
+  {% else %}{{ notyet("Needs spending in at least two periods.") }}{% endif %}
+</section>
+
+{# 4. biggest changes #}
+<section class="panel">
+  <h2>Biggest changes</h2>
+  {% if t.changes_enough %}
+  <p class="muted small">{{ t.changes_period }} compared with the average of {{ t.changes_base|join(", ") }}.
+    Only differences of at least €10 and 15% are listed.</p>
+  {% if t.changes %}
+  <ul class="changes">
+  {% for c in t.changes %}
+    <li{% if c.joint %} class="is-joint"{% endif %}>
+      <span class="ch-name">{% if c.joint %}<span class="joint-dot" aria-hidden="true"></span>{% endif %}{{ c.name }}</span>
+      <span class="ch-diff {{ 'up' if c.diff > 0 else 'down' }}">{{ signed(c.diff) }}{% if c.pct is not none %} ({{ "+" if c.pct > 0 else "" }}{{ c.pct|round|int }}%){% else %} (new){% endif %}</span>
+      <span class="muted small ch-detail">{{ c.spent|eur }} vs usually {{ c.base|eur }}</span>
+    </li>
+  {% endfor %}
+  </ul>
+  {% else %}<p>No big changes — {{ t.changes_period }} looked like the periods before it.</p>{% endif %}
+  {% else %}{{ notyet("Needs at least two finished periods.") }}{% endif %}
+</section>
+
+{# 5. spending pace #}
+<section class="panel">
+  <h2>Spending pace</h2>
+  {% set pc = t.pace %}
+  {% if pc.enough %}
+  <p>Day {{ pc.day }} of {{ pc.days }}: you've spent <strong>{{ pc.spent_now|eur }}</strong>;
+    usually <strong>{{ pc.usual_now|eur }}</strong> by now
+    {% if pc.pct is not none and pc.diff != 0 %}<span class="ch-diff {{ 'up' if pc.diff > 0 else 'down' }}">({{ "+" if pc.pct > 0 else "" }}{{ pc.pct|round|int }}%)</span>{% endif %}.</p>
+  <p class="muted small">“Usually” is the average of your last {{ pc.n_history }} period{{ "" if pc.n_history == 1 else "s" }} at the same day.</p>
+  <div class="chart-box"><canvas id="chart-pace" aria-label="Cumulative spending this period versus usual"></canvas></div>
+  {% else %}{{ notyet("Needs at least one finished period with spending to compare with.") }}{% endif %}
+</section>
+
+<script type="application/json" id="trends-data">{{ t.chart|tojson }}</script>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{% if not t.empty %}
+<script src="/static/vendor/chart.umd.min.js?v={{ static_v }}"></script>
+<script src="/static/app.js?v={{ static_v }}"></script>
+{% endif %}
+{% endblock %}

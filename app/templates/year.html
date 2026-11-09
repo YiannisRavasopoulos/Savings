@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ y.year }}{% endblock %}
+{% block content %}
+{% macro cell(v) -%}
+  {%- if v is none %}<td class="num blank">–</td>{% else %}<td class="num{% if v < 0 %} neg{% endif %}">{{ v|eur }}</td>{% endif -%}
+{%- endmacro %}
+<h1>Year</h1>
+<div class="pp">
+  <a class="pp-step" href="/year?year={{ y.year - 1 }}" aria-label="Previous year">&lsaquo;</a>
+  <div class="pp-pick"><span class="pp-label"><strong>{{ y.year }}</strong></span></div>
+  <a class="pp-step" href="/year?year={{ y.year + 1 }}" aria-label="Next year">&rsaquo;</a>
+</div>
+<p class="pp-range muted">{{ y.range }} · averages over {{ y.n_data }} period{{ "" if y.n_data == 1 else "s" }} with expenses{% if y.year != this_year %} · <a href="/year">This year</a>{% endif %}</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr>
+    <th>Category</th>
+    {% for p in y.periods %}<th class="num" title="{{ p.range }}"><a href="/month?period={{ p.key }}">{{ p.label }}</a></th>{% endfor %}
+    <th class="num">Total</th><th class="num">Avg / month</th>
+  </tr></thead>
+  <tbody>
+  {% for r in y.categories %}
+    <tr{% if r.joint %} class="row-joint"{% endif %}><td>{% if r.joint %}<span class="joint-dot" aria-hidden="true"></span>{% endif %}{{ r.label }}</td>{% for v in r.cells %}{{ cell(v) }}{% endfor %}{{ cell(r.total) }}{{ cell(r.avg) }}</tr>
+  {% endfor %}
+  </tbody>
+  <tfoot>
+  {% for r in y.totals %}
+    <tr class="{{ r.cls or '' }}"><td>{{ r.label }}</td>{% for v in r.cells %}{{ cell(v) }}{% endfor %}{{ cell(r.total) }}{{ cell(r.avg) }}</tr>
+  {% endfor %}
+  </tfoot>
+</table>
+</div>
+
+<h2>Spent vs total income</h2>
+<div class="chart-box"><canvas id="year-chart" aria-label="Spent versus total income per period"></canvas></div>
+<script type="application/json" id="year-chart-data">{{ y.chart|tojson }}</script>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/chart.umd.min.js?v={{ static_v }}"></script>
+<script src="/static/app.js?v={{ static_v }}"></script>
+{% endblock %}

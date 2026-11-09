@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "macros.html" import period_nav %}
+{% block title %}Budget{% endblock %}
+{% macro notyet(text) %}<p class="muted not-yet">{{ text }}</p>{% endmacro %}
+{% block content %}
+{# Budget: you against your plan (Trends is you against your past). #}
+<div class="dash-head"><h1>Budget</h1><a href="/month?period={{ p.key }}">Month &rsaquo;</a></div>
+{{ period_nav("/budget", p) }}
+
+{% if vb.upcoming %}
+<div class="panel"><p class="muted">This period hasn't started yet.</p></div>
+{% elif vb.budget > 0 %}
+<section class="panel vb">
+  <h2>Savings vs budget</h2>
+  {% with key = p.key %}{% include "_vs_budget.html" %}{% endwith %}
+</section>
+
+<section class="panel">
+  <h2>Budget pace</h2>
+  <div class="chart-box"><canvas id="chart-budget-pace" aria-label="Day-to-day spending versus budget pace"></canvas></div>
+</section>
+
+<section class="panel">
+  <h2>Details</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr>
+      <th>Category</th><th class="num">Budget</th><th class="num">Bills &amp; one-offs</th>
+      <th class="num">Allowed{% if not vb.finished %} by today{% endif %}</th><th class="num">Day-to-day</th><th class="num">Balance</th>
+    </tr></thead>
+    <tbody>
+    {% for c in vb.categories %}
+      <tr{% if c.joint %} class="row-joint"{% endif %}>
+        <td>{% if c.joint %}<span class="joint-dot" aria-hidden="true"></span>{% endif %}<a href="/log?period={{ p.key }}&category={{ c.id }}">{{ c.name }}</a></td>
+        <td class="num">{{ c.budget|eur if c.budget > 0 else "–" }}</td>
+        <td class="num">{{ c.fixed|eur }}</td>
+        <td class="num">{{ c.allowed|eur }}</td>
+        <td class="num">{{ c.daily|eur }}</td>
+        <td class="num {{ 'gain' if c.balance >= 0 else 'loss' }}-text">{{ "+" if c.balance > 0 }}{{ c.balance|eur }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot><tr>
+      <th>Total</th><td class="num">{{ vb.budget|eur }}</td><td class="num">{{ vb.fixed|eur }}</td>
+      <td class="num">{{ vb.allowed|eur }}</td><td class="num">{{ vb.daily|eur }}</td>
+      <td class="num {{ 'gain' if vb.balance >= 0 else 'loss' }}-text">{{ "+" if vb.balance > 0 }}{{ vb.balance|eur }}</td>
+    </tr></tfoot>
+  </table>
+  </div>
+</section>
+<script type="application/json" id="budget-pace-data">{{ vb.pace|tojson }}</script>
+{% else %}
+<div class="panel">
+  <p class="muted">Set budgets on your categories to see how much you're saving or losing against them.</p>
+  <a href="/categories">Categories &rsaquo;</a>
+</div>
+{% endif %}
+
+<section class="panel">
+  <h2>Budget track record</h2>
+  {% if r.record %}
+  <p class="muted small">How often each category ended a period within its budget, over the last {{ r.n_complete }}
+    finished period{{ "" if r.n_complete == 1 else "s" }} ({{ r.range }}).</p>
+  <ul class="watch">
+  {% for x in r.record %}
+    {% set st = "red" if x.pct < 50 else ("amber" if x.pct < 100 else "") %}
+    <li{% if x.joint %} class="is-joint"{% endif %}>
+      <a href="/log?category={{ x.id }}" class="watch-name">{% if x.joint %}<span class="joint-dot" aria-hidden="true"></span>{% endif %}{{ x.name }}</a>
+      <span class="watch-amount{{ ' ' ~ st ~ '-text' if st }}">within {{ x.within }} of {{ x.of }}</span>
+      <div class="bar"><span class="record-bar {{ st }}" style="width: {{ x.pct|round(1) }}%"></span></div>
+    </li>
+  {% endfor %}
+  </ul>
+  {% elif r.enough %}{{ notyet("None of your categories had a budget in the finished periods. Set budgets in Settings → Categories.") }}
+  {% else %}{{ notyet("Needs at least one finished period.") }}{% endif %}
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/chart.umd.min.js?v={{ static_v }}"></script>
+<script src="/static/app.js?v={{ static_v }}"></script>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% from "macros.html" import delete_button %}
+{% block title %}Edit expense{% endblock %}
+{% block content %}
+<h1>Edit expense</h1>
+<p><a href="/log?period={{ back }}">&lsaquo; Back to log</a></p>
+{% if errors %}<div class="flash flash-error" role="alert">Please fix the fields marked below.</div>{% endif %}
+{% with action="/expenses/%d/edit"|format(expense_id), submit="Save changes" %}{% include "_expense_form.html" %}{% endwith %}
+<div class="panel">{{ delete_button("/expenses/%d/delete"|format(expense_id), "expense") }}</div>
+{% endblock %}

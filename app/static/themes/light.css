@@ -1,0 +1,58 @@
+/* Light theme. Also the base: every other theme is loaded on top of this one,
+   so a new theme only needs to override the colours it changes. */
+:root {
+  color-scheme: light;
+
+  --bg: #f4f6f4;
+  --surface: #ffffff;
+  --surface-alt: #f6f8f6;
+  --text: #1f2421;
+  --text-muted: #5f6b63;
+  --border: #d9dfda;
+  --border-strong: #9aa59d;
+  --rule: #e3e8e4;
+  --th-bg: #e9eeea;
+  --btn-bg: #eef1ee;
+
+  --accent: #2e7d32;          /* primary buttons, active nav, bars */
+  --accent-text: #ffffff;     /* text on --accent */
+  --link: #2e7d32;
+  --bar-track: #e1e6e2;
+
+  --danger: #b00020;          /* errors, negative amounts */
+  --amber: #d99a00;           /* 85–100 % of budget */
+  --amber-text: #8a6100;
+  --red: #c62828;             /* over budget */
+  --gain: #2e7d32;            /* ahead of budget (saved) */
+  --loss: #c62828;            /* behind budget (damage) */
+  --on-amber: #1f2421;
+  --on-red: #ffffff;          /* text on --red buttons */
+
+  --flash-ok-bg: #e6f4e7;
+  --flash-ok-border: #9ccc9f;
+  --flash-err-bg: #fbeaea;
+  --flash-err-border: #e0a3a3;
+  --blank: #b8c0ba;
+  --tag-bg: #eef1ee;
+  --tag-border: #c9d1cb;
+
+  --chart-spent: #c0504d;
+  --chart-income: #2e7d32;
+  --chart-extra: #e0a526;
+  --chart-grid: #e3e8e4;
+
+  /* shared (joint) categories */
+  --joint: #6f3fb0;
+  --on-joint: #ffffff;
+  --joint-bg: #f3ecfb;
+
+  /* doughnut chart slices, in order */
+  --cat-1: #2e7d32;
+  --cat-2: #1f6fb2;
+  --cat-3: #d99a00;
+  --cat-4: #8e44ad;
+  --cat-5: #d35400;
+  --cat-6: #16a085;
+  --cat-7: #c0392b;
+  --cat-8: #6c7a74;
+}

@@ -1,0 +1,231 @@
+{% extends "admin/base.html" %}
+{% set tab = "home" %}
+{% from "macros.html" import error %}
+{% block title %}Dashboard{% endblock %}
+{% block topright %}
+<button type="button" class="adm-btn adm-ghost" data-open="dlg-password">Admin password</button>
+<form method="post" action="/logout"><button type="submit" class="adm-btn adm-ghost">Log out</button></form>
+{% endblock %}
+
+{% macro err(dlg, name) %}{% if reopen == dlg %}{{ error(errors, name) }}{% endif %}{% endmacro %}
+{% macro when(ts) %}{% if ts %}{{ ts[:10] }} {{ ts[11:16] }}{% else %}—{% endif %}{% endmacro %}
+
+{% block content %}
+{% if message %}<div class="adm-flash" role="status">{{ message }}</div>{% endif %}
+
+<section>
+  <h2>Account requests {% if pending %}<span class="adm-badge">{{ pending|length }}</span>{% endif %}</h2>
+  {% if pending %}
+  <table class="adm-table">
+    <thead><tr><th>Username</th><th>Name</th><th>Requested</th><th></th></tr></thead>
+    <tbody>
+    {% for u in pending %}
+      <tr>
+        <td><strong>{{ u.username }}</strong></td><td>{{ u.display_name }}</td><td>{{ when(u.created_at) }}</td>
+        <td class="adm-actions">
+          <form method="post" action="/users/{{ u.id }}/approve"><button class="adm-btn adm-primary">Approve</button></form>
+          <form method="post" action="/users/{{ u.id }}/reject"
+                onsubmit='return confirm({{ ("Reject and remove the request from " ~ u.username ~ "?")|tojson }});'>
+            <button class="adm-btn adm-danger">Reject</button></form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="adm-muted">No requests waiting. People can request an account from the login page of the app.</p>
+  {% endif %}
+</section>
+
+<section id="messages">
+  <h2>Messages {% if messages %}<span class="adm-badge">{{ messages|length }}</span>{% endif %}</h2>
+  {% if messages %}
+  <ul class="adm-messages">
+  {% for m in messages %}
+    <li class="adm-card" id="msg-{{ m.id }}">
+      <div class="adm-msg-head">
+        <span class="adm-subject{{ ' adm-subject-danger' if m.subject == 'delete_account' }}">{{ subjects.get(m.subject, m.subject) }}</span>
+        <strong>{{ m.display_name }}</strong> <span class="adm-muted">({{ m.username }}{% if m.user_id is none %}, account deleted{% endif %})</span>
+        <span class="adm-muted adm-msg-when">{{ when(m.created_at) }} UTC</span>
+        {% if m.subject == "delete_account" and m.user_id is not none and m.user_id in deletable_ids %}
+        <button type="button" class="adm-btn adm-danger adm-msg-action" data-open="dlg-delete-{{ m.user_id }}">Delete account…</button>
+        {% endif %}
+        <form method="post" action="/messages/{{ m.id }}/priority" class="adm-prio"
+              title="Importance: red = least, green = most. Pick the current level again to clear it.">
+          <span class="adm-prio-label adm-muted">{{ "Priority %d/%d"|format(m.priority, priority_max) if m.priority else "Priority" }}</span>
+          {% for i in range(1, priority_max + 1) %}
+          <button type="submit" name="priority" value="{{ i }}" class="adm-prio-bar adm-prio-{{ i }}{{ ' is-on' if i <= m.priority }}"
+                  aria-label="Priority {{ i }} of {{ priority_max }}{{ ' (current, pick again to clear)' if i == m.priority }}"
+                  aria-pressed="{{ 'true' if i == m.priority else 'false' }}"></button>
+          {% endfor %}
+        </form>
+        {% if m.priority > priority_warn %}
+        <button type="button" class="adm-btn" data-open="dlg-del-msg-{{ m.id }}">Delete</button>
+        {% else %}
+        <form method="post" action="/messages/{{ m.id }}/delete"
+              onsubmit='return confirm("Delete this message?");'><button class="adm-btn">Delete</button></form>
+        {% endif %}
+      </div>
+      <p class="adm-msg-body">{{ m.body }}</p>
+      {% if m.priority > priority_warn %}
+      <dialog id="dlg-del-msg-{{ m.id }}" class="adm-dialog-danger" aria-labelledby="dlg-del-msg-{{ m.id }}-t">
+        <form method="post" action="/messages/{{ m.id }}/delete">
+          <input type="hidden" name="confirm_important" value="1">
+          <h2 id="dlg-del-msg-{{ m.id }}-t">Delete an important message?</h2>
+          <p>You marked this message from <strong>{{ m.display_name }}</strong> as
+            <strong class="adm-prio-text adm-prio-{{ m.priority }}">priority {{ m.priority }} of {{ priority_max }}</strong>.
+            Deleting it can't be undone. Make sure it's been dealt with first.</p>
+          <blockquote class="adm-msg-quote">{{ m.body|truncate(200) }}</blockquote>
+          <div class="adm-dialog-actions"><button type="button" class="adm-btn" data-close>Cancel</button>
+            <button type="submit" class="adm-btn adm-danger-solid">Delete anyway</button></div>
+        </form>
+      </dialog>
+      {% endif %}
+    </li>
+  {% endfor %}
+  </ul>
+  {% else %}
+  <p class="adm-muted">No messages. Users can send one from Settings → Request from admin in the app.</p>
+  {% endif %}
+</section>
+
+<section>
+  <div class="adm-head">
+    <h2>Users</h2>
+    <button type="button" class="adm-btn adm-primary" data-open="dlg-create">+ Create user</button>
+  </div>
+  {% set members = users|rejectattr("status", "equalto", "pending")|list %}
+  {% if members %}
+  <table class="adm-table">
+    <thead><tr><th>Username</th><th>Name</th><th>Status</th><th class="num">Expenses</th><th class="num">Devices</th><th>Last login</th><th></th></tr></thead>
+    <tbody>
+    {% for u in members %}
+      <tr class="{{ 'adm-off' if u.status == 'disabled' }}">
+        <td><strong>{{ u.username }}</strong>{% if u.must_change_password %} <span class="adm-tag">must change password</span>{% endif %}</td>
+        <td>{{ u.display_name }}</td>
+        <td><span class="adm-status adm-{{ u.status }}">{{ u.status }}</span></td>
+        <td class="num">{{ u.n_expenses }}</td>
+        <td class="num">{{ u.n_sessions }}</td>
+        <td>{{ when(u.last_login_at) }}</td>
+        <td class="adm-actions">
+          <form method="post" action="/users/{{ u.id }}/reset-password"
+                onsubmit='return confirm({{ ("Reset the password of " ~ u.username ~ "? They will be logged out and must choose a new one.")|tojson }});'>
+            <button class="adm-btn">Reset password</button></form>
+          {% if u.n_sessions %}<form method="post" action="/users/{{ u.id }}/end-sessions"><button class="adm-btn">Log out devices</button></form>{% endif %}
+          {% if u.status == "active" %}
+          <form method="post" action="/users/{{ u.id }}/disable"><button class="adm-btn">Disable</button></form>
+          {% else %}
+          <form method="post" action="/users/{{ u.id }}/enable"><button class="adm-btn">Enable</button></form>
+          {% endif %}
+          <button type="button" class="adm-btn adm-danger" data-open="dlg-delete-{{ u.id }}">Delete</button>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="adm-muted">No users yet. Approve a request or create one.</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>System</h2>
+  <div class="adm-grid">
+    <div class="adm-card"><div class="adm-muted">Database</div><strong>{{ (system.db_size / 1024)|round(1) }} KB</strong> · schema v{{ system.schema }}</div>
+    <div class="adm-card"><div class="adm-muted">Version</div><strong>Savings {{ system.version }}</strong> · {{ system.timezone }}</div>
+    <div class="adm-card"><div class="adm-muted">Daily backup</div><strong>{{ system.backup_time }}</strong> · kept {{ system.retention }} days</div>
+    <div class="adm-card"><div class="adm-muted">Snapshots</div><strong>{{ system.n_backups }}</strong> in backups/db</div>
+  </div>
+  {% set lb = system.last_backup %}
+  <div class="adm-last-backup{{ ' is-failed' if lb and lb.failed }}{{ ' is-none' if not lb }}" role="status">
+    {% if lb %}
+    <div class="adm-lb-head"><span class="adm-lb-badge">{{ "Backup failed" if lb.failed else "Last backup" }}</span>
+      <strong>{{ lb.when }}</strong> <span class="adm-muted">· {{ lb.who }}</span></div>
+    <div>{{ lb.detail }}</div>
+    <a href="/log?group=backup">All backups in the activity log &rsaquo;</a>
+    {% else %}
+    <div class="adm-lb-head"><span class="adm-lb-badge">Last backup</span> <strong>None recorded yet</strong></div>
+    <div class="adm-muted">The next one runs at {{ system.backup_time }}, or press Back up now.</div>
+    {% endif %}
+  </div>
+  {% if system.backups %}
+  <table class="adm-table adm-compact">
+    <thead><tr><th>Latest snapshots</th><th class="num">Size</th></tr></thead>
+    <tbody>{% for b in system.backups %}<tr><td>{{ b.name }}</td><td class="num">{{ (b.size / 1024)|round(1) }} KB</td></tr>{% endfor %}</tbody>
+  </table>
+  {% endif %}
+  <form method="post" action="/backup-now"><button class="adm-btn">Back up now</button></form>
+  <p class="adm-muted">Restoring a snapshot stops the app, so it's done from a terminal: <code>scripts/restore.sh</code>.</p>
+</section>
+
+{# ---------- dialogs ---------- #}
+<dialog id="dlg-create" aria-labelledby="dlg-create-t">
+  <form method="post" action="/users" novalidate>
+    <h2 id="dlg-create-t">Create user</h2>
+    <p class="adm-muted">They get a temporary password and must choose their own at first login.</p>
+    <label for="c-username">Username</label>
+    <input id="c-username" name="username" autocapitalize="none" value="{{ values.get('username', '') if reopen == 'dlg-create' }}">
+    {{ err("dlg-create", "username") }}
+    <label for="c-name">Name</label>
+    <input id="c-name" name="display_name" value="{{ values.get('display_name', '') if reopen == 'dlg-create' }}">
+    {{ err("dlg-create", "display_name") }}
+    <div class="adm-dialog-actions"><button type="button" class="adm-btn" data-close>Cancel</button>
+      <button type="submit" class="adm-btn adm-primary">Create</button></div>
+  </form>
+</dialog>
+
+{% for u in users if u.status != "pending" %}
+<dialog id="dlg-delete-{{ u.id }}" class="adm-dialog-danger" aria-labelledby="dlg-delete-{{ u.id }}-t">
+  <form method="post" action="/users/{{ u.id }}/delete" novalidate>
+    <h2 id="dlg-delete-{{ u.id }}-t">Delete “{{ u.username }}”?</h2>
+    <p>This deletes the account and <strong>all of its data</strong>: {{ u.n_expenses }} expense{{ "" if u.n_expenses == 1 else "s" }},
+      plus its categories, budgets and income. They are logged out everywhere.</p>
+    <p class="adm-muted">A full snapshot is saved first in backups/db as <code>before-delete-{{ u.username }}-….sqlite</code>
+      (never removed automatically). To keep the data but block access, use Disable instead.</p>
+    <label for="d-{{ u.id }}">Type <strong>{{ u.username }}</strong> to confirm</label>
+    <input id="d-{{ u.id }}" name="confirm" autocomplete="off" autocapitalize="none">
+    {{ err("dlg-delete-%d"|format(u.id), "confirm") }}
+    <div class="adm-dialog-actions"><button type="button" class="adm-btn" data-close>Cancel</button>
+      <button type="submit" class="adm-btn adm-danger-solid">Delete user</button></div>
+  </form>
+</dialog>
+{% endfor %}
+
+<dialog id="dlg-password" aria-labelledby="dlg-password-t">
+  <form method="post" action="/password" novalidate>
+    <h2 id="dlg-password-t">Change admin password</h2>
+    <label for="p-current">Current password</label>
+    <input id="p-current" name="current" type="password" autocomplete="current-password">
+    {{ err("dlg-password", "current") }}
+    <label for="p-new">New password</label>
+    <input id="p-new" name="password" type="password" autocomplete="new-password">
+    <label for="p-confirm">Repeat new password</label>
+    <input id="p-confirm" name="confirm" type="password" autocomplete="new-password">
+    {{ err("dlg-password", "password") }}
+    <div class="adm-dialog-actions"><button type="button" class="adm-btn" data-close>Cancel</button>
+      <button type="submit" class="adm-btn adm-primary">Change</button></div>
+  </form>
+</dialog>
+
+{% if temp %}
+<dialog id="dlg-temp" data-autoshow aria-labelledby="dlg-temp-t">
+  <h2 id="dlg-temp-t">{{ "Account created" if temp.created else "Password reset" }}</h2>
+  <p>Give <strong>{{ temp.username }}</strong> this temporary password. It is shown only once:</p>
+  <p class="adm-secret"><code>{{ temp.password }}</code></p>
+  <p class="adm-muted">They must choose their own password when they log in.</p>
+  <div class="adm-dialog-actions"><button type="button" class="adm-btn adm-primary" data-close>Done</button></div>
+</dialog>
+{% endif %}
+
+{% if alert %}
+<dialog id="dlg-alert" class="adm-dialog-danger" role="alertdialog" data-autoshow aria-labelledby="dlg-alert-t">
+  <h2 id="dlg-alert-t">Can't do that</h2>
+  <p>{{ alert }}</p>
+  <div class="adm-dialog-actions"><button type="button" class="adm-btn adm-primary" data-close>OK</button></div>
+</dialog>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/dialogs.js?v={{ static_v }}" data-reopen="{{ reopen or '' }}"></script>
+{% endblock %}

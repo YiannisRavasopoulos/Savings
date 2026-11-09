@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Recurring expenses{% endblock %}
+{% block content %}
+<h1>Recurring expenses</h1>
+{% if message %}<div class="flash" role="status">{{ message }}</div>{% endif %}
+{% if errors %}<div class="flash flash-error" role="alert">Please fix the fields marked below.</div>{% endif %}
+<p class="muted small">Rent, subscriptions and bills that repeat. Each payment becomes an ordinary expense on its date,
+  added up to the end of your current period (now {{ until|day }}), so the rest of this period's payments show as
+  <span class="tag tag-future">future</span> and already count in your totals. They're tagged
+  <span class="tag tag-recurring">↻ recurring</span> in the Log, where you can edit or delete any one of them.</p>
+
+{% if rules %}
+<ul class="cat-list">
+{% for r in rules %}
+  <li class="cat-card{{ ' is-joint' if r.is_joint }}{{ ' rule-paused' if not r.active }}" id="rule-{{ r.id }}">
+    <div class="cat-head">
+      <strong class="cat-name">{{ r.description }}</strong>
+      <strong class="rule-amount">{{ r.amount_cents|eur }}</strong>
+    </div>
+    <p class="small muted rule-meta">
+      {% if r.is_joint %}<span class="joint-dot" aria-hidden="true"></span>{% endif %}{{ r.category }} ·
+      {{ r.frequency }} from {{ r.start_date|day }}{% if r.end_date %} to {{ r.end_date|day }}{% endif %} ·
+      {{ r.n_made }} payment{{ "" if r.n_made == 1 else "s" }} so far
+    </p>
+    <p class="small">
+      {% if not r.active %}<span class="tag">paused</span> No new payments are added.
+      {% elif r.blocked %}<span class="tag">on hold</span> {{ r.blocked }}
+      {% elif r.ended %}<span class="tag">ended</span> No payments left.
+      {% else %}Next payment after today: <strong>{{ r.next|day }}</strong>{% endif %}
+    </p>
+    <div class="row-actions">
+      <a class="btn-small" href="/recurring/{{ r.id }}/edit">Edit</a>
+      {% if r.active %}
+      <form method="post" action="/recurring/{{ r.id }}/pause" class="inline"
+            onsubmit="return confirm('Pause it? Payments dated after today are removed until you resume.');">
+        <button type="submit" class="btn-small">Pause</button></form>
+      {% else %}
+      <form method="post" action="/recurring/{{ r.id }}/resume" class="inline"><button type="submit" class="btn-small">Resume</button></form>
+      {% endif %}
+      <form method="post" action="/recurring/{{ r.id }}/delete" class="inline"
+            onsubmit="return confirm('Delete this recurring expense? Payments dated after today are removed; ones already made stay in your log.');">
+        <button type="submit" class="btn-small btn-danger">Delete</button></form>
+    </div>
+  </li>
+{% endfor %}
+</ul>
+{% else %}
+<p class="muted">No recurring expenses yet.</p>
+{% endif %}
+
+<h2 id="add">Set up a recurring expense</h2>
+<form method="post" action="/recurring" class="panel" novalidate>
+  {% with schedule=True %}{% include "_recurring_fields.html" %}{% endwith %}
+  <p class="muted small">If the first payment is in the past, the payments since then are added too.
+    Days past the end of a short month fall on its last day (a 31st becomes the 30th or 28th).</p>
+  <button type="submit" class="btn-primary">Set up</button>
+</form>
+{% endblock %}

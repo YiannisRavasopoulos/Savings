@@ -1,0 +1,41 @@
+{% from "macros.html" import input, textarea, error %}
+<form method="post" action="{{ action }}" class="panel" novalidate>
+  {{ input("date", "Date", values, errors, type="date", attrs="required") }}
+  {{ input("description", "Description", values, errors, attrs='required maxlength="200" autocomplete="off"') }}
+  <div class="field{% if errors.get('category_id') %} has-error{% endif %}">
+    <label for="f-category_id">Category</label>
+    <select id="f-category_id" name="category_id" required>
+      <option value="" disabled{% if not values.category_id %} selected{% endif %}>Choose…</option>
+      {% set own = categories|rejectattr("is_joint")|list %}
+      {% set joint = categories|selectattr("is_joint")|list %}
+      {% for c in own %}
+      <option value="{{ c.id }}"{% if values.category_id == c.id|string %} selected{% endif %}>{{ c.name }}{% if c.archived %} (archived){% endif %}</option>
+      {% endfor %}
+      {% if joint %}<optgroup label="Shared">
+      {% for c in joint %}
+      <option value="{{ c.id }}" data-joint="1" class="option-joint"{% if values.category_id == c.id|string %} selected{% endif %}>◆ {{ c.name }}</option>
+      {% endfor %}</optgroup>{% endif %}
+    </select>
+    {{ error(errors, "category_id") }}
+  </div>
+  {{ input("amount", "Amount (€)", values, errors, attrs='inputmode="decimal" required autocomplete="off" placeholder="0.00"') }}
+  <p class="muted small joint-note" id="joint-note" hidden>Shared category: this expense is split between its members by their
+    shares and shown as “Paid by you”.</p>
+  <script>
+    (function () {   // explain what happens when a shared category is picked
+      var sel = document.getElementById("f-category_id"), note = document.getElementById("joint-note");
+      function sync() {
+        var opt = sel.options[sel.selectedIndex];
+        note.hidden = !(opt && opt.getAttribute("data-joint"));
+      }
+      sel.addEventListener("change", sync); sync();
+    })();
+  </script>
+  {{ textarea("notes", "Notes", values, errors) }}
+  <label class="choice check-row">
+    <input type="checkbox" name="one_off" value="1"{% if values.get("one_off") %} checked{% endif %}>
+    <span><strong>One-off</strong> <span class="muted small">— unusual purchase (a repair, a big gadget). It counts
+      in your totals but not as “typical” spending when forecasting savings.</span></span>
+  </label>
+  <button type="submit" class="btn-primary">{{ submit }}</button>
+</form>

@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en"{% if theme in ("glass", "glass-dark") %} data-look="glass"{% endif %}{% if theme == "glass-dark" %} data-glass="dark"{% endif %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block title %}Savings{% endblock %} · Savings</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="/static/icons/icon-192.png?v={{ static_v }}">
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v={{ static_v }}">
+  <link rel="manifest" href="/static/manifest.json?v={{ static_v }}">
+  {# The browser's bar above the page takes the top bar's colour, so the page reaches the screen edge. #}
+  {% if theme == "auto" %}
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1b1f1c" media="(prefers-color-scheme: dark)">
+  {% else %}
+  <meta name="theme-color" content="{{ {'light': '#ffffff', 'dark': '#1b1f1c', 'glass': '#f2f2f7', 'glass-dark': '#000000'}.get(theme, '#ffffff') }}">
+  {% endif %}
+  <meta name="apple-mobile-web-app-title" content="Savings">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  {# Home-screen app on iPhone: draw under the status bar / Dynamic Island. iOS then always shows
+     white status icons, so only for dark looks: Dark, Glass Dark, and Auto when the phone is in dark mode. #}
+  {% if theme in ("dark", "glass-dark") %}
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  {% elif theme == "auto" %}
+  <script>
+    if (matchMedia("(prefers-color-scheme: dark)").matches)
+      document.write('<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">');
+  </script>
+  {% endif %}
+  <link rel="stylesheet" href="/static/themes/light.css?v={{ static_v }}">
+  {% if theme == "auto" %}
+  <link rel="stylesheet" href="/static/themes/dark.css?v={{ static_v }}" media="(prefers-color-scheme: dark)">
+  {% elif theme != "light" %}
+  <link rel="stylesheet" href="/static/themes/{{ theme }}.css?v={{ static_v }}">
+  {% endif %}
+  <link rel="stylesheet" href="/static/style.css?v={{ static_v }}">
+  <link rel="stylesheet" href="/static/splash.css?v={{ static_v }}">
+  <script>
+    // Which splash to show on a given day (also used by Settings and ./preview-splashes.sh).
+    window.SAVINGS_SPLASHES = ["tumble", "coins", "piggy", "slots", "typewriter", "chart", "vault"];
+    window.savingsPickSplash = function (now, startDay) {
+      var list = window.SAVINGS_SPLASHES, choice = "rotate";
+      try { choice = localStorage.getItem("savings-splash-choice") || "rotate"; } catch (e) {}
+      if (list.indexOf(choice) >= 0) return { name: choice };
+      // festive season: Christmas splash (24 Dec – 1 Jan), not part of the rotation
+      var m = now.getMonth(), d = now.getDate();
+      if ((m === 11 && d >= 31) || (m === 0 && d === 1)) return { name: "christmas", note: "Happy New Year!" };
+      if (m === 11 && d >= 24) return { name: "christmas", note: "Merry Christmas!" };
+      if (startDay && now.getDate() === startDay) return { name: "vault", note: "A new period begins" };
+      var day = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000);
+      if (choice === "shuffle") day = (day * 2654435761) % 4294967296;   // a fixed, scrambled order
+      return { name: list[day % list.length] };
+    };
+  </script>
+  <script>
+    (function () {   // before the first paint: animation settings, splash, tab slide direction
+      var root = document.documentElement, store = window.sessionStorage;
+      root.classList.add("js");
+      var off = false;
+      try { off = localStorage.getItem("savings-animations") === "off"; } catch (e) {}
+      if (off || matchMedia("(prefers-reduced-motion: reduce)").matches) root.classList.add("no-anim");
+      try {   // appearance on this device (Settings → Appearance)
+        var prefs = JSON.parse(localStorage.getItem("savings-prefs") || "{}");
+        if (prefs.text === "small" || prefs.text === "large") root.classList.add("text-" + prefs.text);
+        if (prefs.compact) root.classList.add("compact");
+        if (prefs.privacy) root.classList.add("privacy");
+      } catch (e) {}
+      try {
+        // splash: once per launch of the home-screen app. Which one: Settings → Appearance
+        // (rotate daily, shuffle daily, or a favourite); special days override the rotation.
+        var standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+        if (standalone && !root.classList.contains("no-anim") && !store.getItem("savings-splash")) {
+          var pick = window.savingsPickSplash(new Date(), {{ (user.period_start_day if user else 0)|int }});
+          root.classList.add("splash");
+          root.setAttribute("data-splash", pick.name);
+          if (pick.note) root.setAttribute("data-splash-note", pick.note);
+          store.setItem("savings-splash", "1");
+        }
+        // tab switch: slide in the direction of the tab order
+        var tabs = ["/", "/month", "/budget", "/trends", "/year", "/settings"], from = store.getItem("savings-tab-from");
+        store.removeItem("savings-tab-from");
+        var to = tabs.indexOf(location.pathname);
+        if (from !== null && to >= 0 && +from !== to) root.setAttribute("data-vt", to > +from ? "forward" : "back");
+      } catch (e) {}
+      // animations off: skip the page transition entirely
+      window.addEventListener("pagereveal", function (e) {
+        if (e.viewTransition && root.classList.contains("no-anim")) e.viewTransition.skipTransition();
+      });
+    })();
+  </script>
+</head>
+<body>
+  {% include "_splashes.html" %}
+  <script>
+    (function () {   // special day: put its greeting on the splash
+      var note = document.documentElement.getAttribute("data-splash-note");
+      if (note) document.querySelector("#splash .sp-note").textContent = note;
+    })();
+  </script>
+  </div>
+  {% set tabs = [("home", "/", "Home"), ("month", "/month", "Month"), ("budget", "/budget", "Budget"),
+                 ("trends", "/trends", "Trends"), ("year", "/year", "Year")] %}
+  {# Pages outside the tabs get a link back to where they're opened from. #}
+  {% set parents = {"/categories": ("/settings", "Settings"), "/settings": ("/", "Home"),
+                    "/add": ("/", "Home"), "/income": ("/", "Home"), "/log": ("/", "Home"),
+                    "/plans": ("/", "Home"), "/recurring": ("/settings", "Settings"),
+                    "/import": ("/settings", "Settings")} %}
+  {# The quick actions: the ☰ menu (top left) on a PC, the green centre button on a phone. #}
+  {% set actions = [("/add", "Add expense", "−€"), ("/income#add-income", "Add income", "+€"),
+                    ("/plans", "Plan a purchase", "⏱"), ("/recurring", "Recurring expenses", "↻")] %}
+  {% set settings_action = ("/settings", "Settings", "⚙") %}
+  {% set icons = {
+    "home": '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
+    "month": '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    "trends": '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+    "year": '<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',
+    "budget": '<path d="M4 17a8 8 0 1 1 16 0"/><path d="M12 17l4-5"/><path d="M3 21h18"/>',
+    "settings": '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>'} %}
+  <header class="topbar">
+    {% if user %}
+    <details class="burger desk-only" id="burger-menu" data-menu>
+      <summary class="burger-btn" aria-label="Menu: add expense, add income, plan a purchase, recurring expenses" title="Menu"><span class="burger-bars" aria-hidden="true"><i></i><i></i><i></i></span></summary>
+      <div class="burger-panel">
+        {% for href, label, icon in actions %}
+        <a class="menu-item" href="{{ href }}"><span class="menu-icon" aria-hidden="true">{{ icon }}</span>{{ label }}</a>
+        {% endfor %}
+      </div>
+    </details>
+    {% endif %}
+    <a class="brand" href="/"><img src="/static/icons/icon-192.png?v={{ static_v }}" alt="" width="26" height="26">Savings</a>
+    {% if user %}<span class="whoami" title="Logged in as {{ user.username }}">{{ user.display_name }}</span>
+    <a class="settings-btn desk-only{{ ' active' if request.url.path == '/settings' }}" href="/settings" title="Settings"><span aria-hidden="true">⚙</span> Settings</a>{% endif %}
+  </header>
+  {% if user %}
+  <nav class="nav desk-only" id="main-nav" aria-label="Main">
+    {% for key, href, label in tabs %}
+    <a href="{{ href }}" data-tab="{{ loop.index0 }}"{% if active == key %} class="active" aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  {% endif %}
+  <main>
+    {% set here = request.url.path %}
+    {% if user and here in parents %}<a class="back-link" href="{{ parents[here][0] }}">&lsaquo; {{ parents[here][1] }}</a>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  {% if user %}
+  {# Phone: conventional bottom bar, with the green action button in the centre. #}
+  <nav class="tabbar mobile-only" id="tabbar" aria-label="Main">
+    {# three tabs either side of the centre button: Settings joins the phone bar #}
+    {% for key, href, label in tabs + [("settings", "/settings", "Settings")] %}
+    {% if loop.index == 4 %}
+    <details class="tab-action" id="tab-action" data-menu>
+      <summary class="tab-action-btn" aria-label="Actions: add expense, add income, plan a purchase, recurring expenses, settings" title="Actions"><span class="act-icon" aria-hidden="true"><svg class="bolt" viewBox="0 0 24 24" width="26" height="26"><path d="M13.5 2 4.5 13.5h6L9.5 22l9-11.5h-6z"/></svg><svg class="close" viewBox="0 0 24 24" width="22" height="22"><path d="M5 5l14 14M19 5 5 19"/></svg></span></summary>
+      <div class="action-sheet">
+        {% for href, label, icon in actions + [settings_action] %}
+        <a class="menu-item" href="{{ href }}"{% if href == "/add" %} data-quick-add{% endif %}><span class="menu-icon" aria-hidden="true">{{ icon }}</span>{{ label }}</a>
+        {% endfor %}
+      </div>
+    </details>
+    {% endif %}
+    <a class="tab{{ ' active' if active == key }}" href="{{ href }}" data-tab="{{ loop.index0 }}"{% if active == key %} aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">{{ icons[key]|safe }}</svg><span>{{ label }}</span></a>
+    {% endfor %}
+  </nav>
+  {# Phone quick add: a bottom sheet over the current page (static/quick.js). #}
+  <dialog id="quick-add" class="quick-sheet" aria-labelledby="qa-title">
+    <form id="qa-form" method="post" action="/quick-add" novalidate>
+      <div class="qa-head">
+        <h2 id="qa-title" class="sr-only">Quick add</h2>
+        <div class="qa-kind" role="radiogroup" aria-label="What to add">
+          <label><input type="radio" name="kind" value="expense" checked><span>Expense</span></label>
+          <label><input type="radio" name="kind" value="income"><span>Income</span></label>
+        </div>
+        <button type="button" class="qa-close" data-qa-close aria-label="Close">✕</button>
+      </div>
+      <label class="qa-amount-row" for="qa-amount"><span aria-hidden="true">€</span>
+        <input id="qa-amount" name="amount" inputmode="decimal" autocomplete="off" aria-label="Amount in euro"></label>
+      <div class="qa-error" data-qa-error="amount" hidden></div>
+      <div class="qa-section" data-qa-expense>
+        <div class="qa-chips qa-cats" id="qa-cats" role="radiogroup" aria-label="Category"></div>
+        <select id="qa-more" class="qa-more" aria-label="Other categories"><option value="">More categories…</option></select>
+        <input type="hidden" name="category_id" id="qa-category">
+        <div class="qa-error" data-qa-error="category_id" hidden></div>
+      </div>
+      <div class="qa-chips qa-dates" role="radiogroup" aria-label="Date">
+        <button type="button" class="qa-chip" data-qa-day="today">Today</button>
+        <button type="button" class="qa-chip" data-qa-day="yesterday">Yesterday</button>
+        <input type="date" name="date" id="qa-date" aria-label="Date" required>
+      </div>
+      <div class="qa-error" data-qa-error="date" hidden></div>
+      <input type="text" name="description" id="qa-description" maxlength="200" autocomplete="off"
+             placeholder="Description (optional)" aria-label="Description (optional)">
+      <div class="qa-error" data-qa-error="description" hidden></div>
+      <button type="submit" class="btn-primary qa-save">Save</button>
+      <a class="qa-more-link" id="qa-full" href="/add">More details &rsaquo;</a>
+    </form>
+  </dialog>
+  <script src="/static/quick.js?v={{ static_v }}" defer></script>
+  <script>
+    (function () {   // remember which tab a tab switch starts from (for the slide direction)
+      var tabs = ["/", "/month", "/budget", "/trends", "/year", "/settings"];
+      document.addEventListener("click", function (e) {
+        var a = e.target.closest("a[data-tab]");
+        if (!a) return;
+        try { sessionStorage.setItem("savings-tab-from", String(tabs.indexOf(location.pathname))); } catch (err) {}
+      });
+    })();
+  </script>
+  <script>
+    // Keep the page underneath still while a pop-up is open (iOS ignores overflow: hidden on
+    // the body, so the body is pinned in place and put back where it was afterwards).
+    // While a menu or sheet is open the page behind it doesn't scroll. Only overflow is used, not
+    // position: fixed on the body: pinning the body made iPhone Safari bring its toolbar back and
+    // shift the bottom bar up.
+    window.scrollLock = (function () {
+      var holders = 0, html = document.documentElement.style, b = document.body.style;
+      return {
+        lock: function () {
+          if (holders++) return;
+          html.overflow = b.overflow = "hidden"; html.overscrollBehavior = "none";
+        },
+        unlock: function () {
+          if (!holders || --holders) return;
+          html.overflow = b.overflow = html.overscrollBehavior = "";
+        }
+      };
+    })();
+    (function () {   // the menus: one open at a time; close on Esc, or a tap outside / on the backdrop
+      var menus = [].slice.call(document.querySelectorAll("details[data-menu]"));
+      function closeAll(except) { menus.forEach(function (m) { if (m !== except) m.open = false; }); }
+      menus.forEach(function (m) {
+        m.addEventListener("toggle", function () {
+          if (m.open) { closeAll(m); window.scrollLock.lock(); m.dataset.locked = "1"; }
+          else if (m.dataset.locked) { delete m.dataset.locked; window.scrollLock.unlock(); }
+        });
+        m.addEventListener("click", function (e) { if (e.target === m) m.open = false; });   // the dimmed backdrop
+      });
+      document.addEventListener("click", function (e) {
+        menus.forEach(function (m) { if (m.open && !m.contains(e.target)) m.open = false; });
+      });
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeAll(null); });
+    })();
+    document.addEventListener("click", function (e) {   // period picker: ‹ year › inside the month grid
+      var b = e.target.closest("[data-pp-year]");
+      if (!b) return;
+      var cur = b.closest(".pp-year");
+      var to = +b.getAttribute("data-pp-year") > 0 ? cur.nextElementSibling : cur.previousElementSibling;
+      if (to && to.classList.contains("pp-year")) { cur.hidden = true; to.hidden = false; }
+    });
+  </script>
+  {% endif %}
+  {% block scripts %}{% endblock %}
+  <script src="/static/fx.js?v={{ static_v }}" defer></script>
+  <script src="/static/prefs.js?v={{ static_v }}" defer></script>
+  <script>
+    // Offline page for the home-screen app. Browsers only allow this on HTTPS (or localhost).
+    if ("serviceWorker" in navigator && window.isSecureContext) navigator.serviceWorker.register("/sw.js").catch(function () {});
+  </script>
+</body>
+</html>

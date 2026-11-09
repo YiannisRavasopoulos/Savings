@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% from "macros.html" import error %}
+{% block title %}{{ cat.name }} · Shared{% endblock %}
+{% block content %}
+<p><a href="/categories">&lsaquo; Categories</a></p>
+<div class="dash-head joint-head">
+  <h1>{{ cat.name }}</h1>
+  <span class="joint-badge">Shared</span>
+  <span class="tag">{{ "Moderator" if is_mod else "Member" }}</span>
+</div>
+{% if message and not notice_title %}<div class="flash" role="status">{{ message }}</div>{% endif %}
+
+<section class="panel joint-panel">
+  <h2>You</h2>
+  <div class="trend-stats">
+    <div><span class="muted small">Your share</span><strong>{{ pct(my_share) }}%</strong></div>
+    <div><span class="muted small">Your cost this period</span><strong>{{ my_cost|eur }}</strong></div>
+    <div><span class="muted small">Your budget</span><strong>{{ my_budget|eur if my_budget else "—" }}</strong>{% if my_budget %}<span class="muted small">per month</span>{% endif %}</div>
+  </div>
+  <p class="small muted">Your budget for this category is your own: set it in <a href="/categories#cat-{{ cat.id }}">Categories</a>.
+    It's checked against your share of the spending in your own periods, like any other category.</p>
+  <p class="small">Spent together in your current period ({{ period_range }}): <strong>{{ total|eur }}</strong></p>
+</section>
+
+<section class="panel">
+  <div class="dash-head"><h2>Participants</h2>
+    {% if is_mod %}<button type="button" class="btn-small btn-joint" data-open="dlg-invite">+ Invite</button>{% endif %}</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Name</th><th class="num">Share</th><th class="num">Paid this period</th><th></th></tr></thead>
+    <tbody>
+    {% for m in members %}
+      <tr>
+        <td><strong>{{ m.display_name }}</strong> <span class="muted">({{ m.username }})</span>
+          {% if m.role == "moderator" %}<span class="joint-badge small-badge">Moderator</span>{% endif %}</td>
+        <td class="num">{{ pct(m.share) }}%</td>
+        <td class="num">{{ m.paid|eur }}</td>
+        <td class="row-actions">
+          {% if is_mod and m.user_id != me.user_id %}
+          <button type="button" class="btn-small btn-danger" data-open="dlg-remove-{{ m.user_id }}">Remove</button>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if is_mod and invites %}
+  <h3 class="small">Invitations waiting</h3>
+  <ul class="plain-list">
+    {% for i in invites %}<li>{{ i.display_name }} <span class="muted">({{ i.username }}) · expires {{ i.expires_at|day }}</span>
+      <form method="post" action="/shared/{{ cat.id }}/invites/{{ i.id }}/cancel" class="inline"><button class="btn-small">Cancel</button></form></li>{% endfor %}
+  </ul>
+  {% endif %}
+  <p class="muted small">Each expense is split by these shares, using the shares in effect on its date. Changes apply to
+    expenses dated from the day they're made; earlier ones keep their split.
+    {% if is_mod %}When someone joins, shares become equal; when someone leaves, their share is spread over the others.{% endif %}</p>
+  {% if is_mod %}<button type="button" class="btn-small" data-open="dlg-shares">Rearrange shares</button>{% endif %}
+</section>
+
+<section class="panel">
+  <h2>Expenses this period</h2>
+  {% if expenses %}
+  <ul class="recent">
+  {% for e in expenses %}
+    <li><{{ "a" if e.user_id == me.user_id else "div" }} class="recent-row"{% if e.user_id == me.user_id %} href="/expenses/{{ e.id }}/edit"{% endif %}>
+      <span class="recent-main"><strong>{{ e.description }}</strong><span class="muted">{{ e.date|day }} · Paid by {{ "you" if e.user_id == me.user_id else e.paid_by }}</span></span>
+      <span class="recent-amount">{{ e.amount_cents|eur }}</span></{{ "a" if e.user_id == me.user_id else "div" }}></li>
+  {% endfor %}
+  </ul>
+  {% else %}<p class="muted">Nothing logged in this period yet.</p>{% endif %}
+</section>
+
+<section class="panel">
+  <h2>Your membership</h2>
+  {% if is_mod and others %}
+    <p class="small">To leave, first hand over moderation to another member.</p>
+    <button type="button" class="btn-small" data-open="dlg-handover">Hand over moderation</button>
+    <button type="button" class="btn-small btn-danger" data-open="dlg-close">Close this shared category</button>
+  {% elif is_mod %}
+    <button type="button" class="btn-small btn-danger" data-open="dlg-close">Close this shared category</button>
+  {% else %}
+    <button type="button" class="btn-small btn-danger" data-open="dlg-leave">Leave</button>
+  {% endif %}
+</section>
+
+{# ---------- dialogs ---------- #}
+{% if is_mod %}
+<dialog id="dlg-invite" aria-labelledby="dlg-invite-t">
+  <form method="post" action="/shared/{{ cat.id }}/invite" novalidate>
+    <h2 id="dlg-invite-t">Invite someone</h2>
+    <p class="muted small">Type their exact username (ask them for it). They'll see the invitation and can accept or decline.
+      At most {{ max_members }} members.</p>
+    <label for="inv-user">Username</label>
+    <input id="inv-user" name="username" autocapitalize="none" autocomplete="off" value="{{ values.get('username', '') if reopen == 'dlg-invite' }}">
+    {% if reopen == "dlg-invite" %}{{ error(errors, "username") }}{% endif %}
+    <div class="dialog-actions"><button type="button" data-close>Cancel</button><button type="submit" class="btn-joint">Send invitation</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-shares" aria-labelledby="dlg-shares-t">
+  <form method="post" action="/shared/{{ cat.id }}/shares" novalidate>
+    <h2 id="dlg-shares-t">Rearrange shares</h2>
+    <p class="muted small">Applies to expenses dated from today on. Percentages must add up to 100.</p>
+    {% for m in members %}
+    {% set key = "share_%d"|format(m.user_id) %}
+    <div class="share-row">
+      <label for="sh-{{ m.user_id }}">{{ m.display_name }}</label>
+      <input id="sh-{{ m.user_id }}" name="{{ key }}" inputmode="decimal" autocomplete="off"
+             value="{{ values.get(key, pct(m.share)) if reopen == 'dlg-shares' else pct(m.share) }}"><span>%</span>
+    </div>
+    {% endfor %}
+    {% if reopen == "dlg-shares" %}{{ error(errors, "shares") }}{% endif %}
+    <div class="dialog-actions"><button type="button" data-close>Cancel</button><button type="submit" class="btn-joint">Save shares</button></div>
+  </form>
+</dialog>
+
+{% for m in others %}
+<dialog id="dlg-remove-{{ m.user_id }}" class="dialog-danger" aria-labelledby="dlg-remove-{{ m.user_id }}-t">
+  <form method="post" action="/shared/{{ cat.id }}/members/{{ m.user_id }}/remove">
+    <h2 id="dlg-remove-{{ m.user_id }}-t">Remove {{ m.display_name }}?</h2>
+    <p>They're out from today. Their past expenses stay here, and their share of those stays in their history.
+      Expenses from today on are split among the remaining members (their share is spread over the others).</p>
+    <div class="dialog-actions"><button type="button" data-close>Cancel</button><button type="submit" class="btn-danger-solid">Remove</button></div>
+  </form>
+</dialog>
+{% endfor %}
+
+<dialog id="dlg-handover" aria-labelledby="dlg-handover-t">
+  <form method="post" action="/shared/{{ cat.id }}/handover">
+    <h2 id="dlg-handover-t">Hand over moderation</h2>
+    <label for="ho-member">New moderator</label>
+    <select id="ho-member" name="member">
+      {% for m in others %}<option value="{{ m.user_id }}">{{ m.display_name }}</option>{% endfor %}
+    </select>
+    <p class="muted small">They'll manage the members, shares and name; you become a regular member.</p>
+    <div class="dialog-actions"><button type="button" data-close>Cancel</button><button type="submit" class="btn-joint">Hand over</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-close" class="dialog-danger" aria-labelledby="dlg-close-t">
+  <form method="post" action="/shared/{{ cat.id }}/close">
+    <h2 id="dlg-close-t">Close “{{ cat.name }}”?</h2>
+    <p>Everyone (you included) leaves today and it's archived for everyone. Nobody can add new expenses to it;
+      its history stays in everyone's totals.</p>
+    <div class="dialog-actions"><button type="button" data-close>Cancel</button><button type="submit" class="btn-danger-solid">Close category</button></div>
+  </form>
+</dialog>
+{% else %}
+<dialog id="dlg-leave" class="dialog-danger" aria-labelledby="dlg-leave-t">
+  <form method="post" action="/shared/{{ cat.id }}/leave">
+    <h2 id="dlg-leave-t">Leave “{{ cat.name }}”?</h2>
+    <p>You're out from today, and it becomes archived for you. Your past expenses here, and your share of the others',
+      stay in your history. New expenses are split among the remaining members.</p>
+    <div class="dialog-actions"><button type="button" data-close>Cancel</button><button type="submit" class="btn-danger-solid">Leave</button></div>
+  </form>
+</dialog>
+{% endif %}
+
+{% if notice_title and message %}
+<dialog id="dlg-notice" class="dialog-joint" role="alertdialog" aria-labelledby="dlg-notice-title" data-autoshow>
+  <h2 id="dlg-notice-title">{{ notice_title }}</h2>
+  <p>{{ message }}</p>
+  <div class="dialog-actions"><button type="button" class="btn-joint" data-close>OK</button></div>
+</dialog>
+{% endif %}
+
+{% if alert %}
+<dialog id="dlg-alert" class="dialog-danger" role="alertdialog" aria-labelledby="dlg-alert-title" data-autoshow>
+  <h2 id="dlg-alert-title">Can't do that</h2>
+  <p>{{ alert }}</p>
+  <div class="dialog-actions"><button type="button" class="btn-accent" data-close>OK</button></div>
+</dialog>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script src="/static/dialogs.js?v={{ static_v }}" data-reopen="{{ reopen or '' }}"></script>
+{% endblock %}

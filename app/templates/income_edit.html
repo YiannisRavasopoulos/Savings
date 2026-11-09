@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% from "macros.html" import delete_button %}
+{% block title %}Edit income{% endblock %}
+{% block content %}
+<h1>Edit extra income</h1>
+<p><a href="/income?period={{ back }}">&lsaquo; Back to income</a></p>
+{% if errors %}<div class="flash flash-error" role="alert">Please fix the fields marked below.</div>{% endif %}
+{% with action="/income/%d/edit"|format(income_id), submit="Save changes" %}{% include "_income_form.html" %}{% endwith %}
+<div class="panel">{{ delete_button("/income/%d/delete"|format(income_id), "income entry") }}</div>
+{% endblock %}

@@ -1,0 +1,11 @@
+tmp/
+.env
+.git/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.directory
+release/
+.release-denylist
+widget/
+.gitignore

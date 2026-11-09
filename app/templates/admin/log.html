@@ -1,0 +1,74 @@
+{% extends "admin/base.html" %}
+{% set tab = "log" %}
+{% block title %}Activity log
+{% if saved %}
+<section class="adm-saved-logs">
+  <h2>Saved logs</h2>
+  <p class="adm-muted">Saved automatically each time the log is cleared, in <code>backups/activity-log/</code> in the data folder.</p>
+  <ul>{% for f in saved %}<li><a href="/log/saved/{{ f.name }}" download>{{ f.name }}</a> <span class="adm-muted">({{ f.kb }} KB)</span></li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<dialog id="dlg-clear-log" class="adm-dialog-danger" aria-labelledby="dlg-clear-log-t">
+  <form method="post" action="/log/clear">
+    <h2 id="dlg-clear-log-t">Clear the activity log?</h2>
+    <p>All {{ total }} entr{{ "y" if total == 1 else "ies" }} (whatever the filter) are first saved as a CSV file named by
+      the current time, then removed from this page. The file stays in the data folder and is listed under Saved logs.</p>
+    <div class="adm-dialog-actions"><button type="button" class="adm-btn" data-close>Cancel</button>
+      <button type="submit" class="adm-btn adm-danger-solid">Save &amp; clear</button></div>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}
+<script src="/static/dialogs.js?v={{ static_v }}"></script>
+<script>
+  (function () {   // apply the Type filter as soon as it's picked
+    var f = document.getElementById("log-filter");
+    if (f) f.querySelector("select").addEventListener("change", function () { f.submit(); });
+  })();
+</script>
+{% endblock %}
+{% block topright %}
+<form method="post" action="/logout"><button type="submit" class="adm-btn adm-ghost">Log out</button></form>
+{% endblock %}
+{% block content %}
+<div class="adm-head">
+  <h1>Activity log</h1>
+  <span class="adm-muted">{{ total }} entr{{ "y" if total == 1 else "ies" }} · kept {{ retention }} days</span>
+</div>
+{% if message %}<div class="adm-flash" role="status">{{ message }}</div>{% endif %}
+<p class="adm-muted">Who did what, and when (Europe/Athens time). Actions only: no amounts, expense descriptions or notes.</p>
+<div class="adm-actions adm-log-actions">
+  <a class="adm-btn" href="/log.csv{% if export_query %}?{{ export_query }}{% endif %}" download>Export CSV{% if group %} (this filter){% endif %}</a>
+  {% if total %}<button type="button" class="adm-btn adm-danger" data-open="dlg-clear-log">Clear log…</button>{% endif %}
+</div>
+
+<form method="get" action="/log" class="adm-filters" id="log-filter">
+  <label for="f-group">Type</label>
+  <select id="f-group" name="group">
+    <option value="">Everything ({{ total }})</option>
+    {% for key, label in groups.items() %}<option value="{{ key }}"{% if key == group %} selected{% endif %}>{{ label }} ({{ counts[key] }})</option>{% endfor %}
+  </select>
+  <button type="submit" class="adm-btn">Filter</button>
+  {% if group %}<a href="/log" class="adm-btn">Show everything</a>{% endif %}
+</form>
+
+{% if entries %}
+<table class="adm-table adm-log">
+  <thead><tr><th>When</th><th>Who</th><th>What</th><th>Takes effect</th></tr></thead>
+  <tbody>
+  {% for e in entries %}
+    <tr class="log-{{ e.group }}{{ ' log-failed' if e.kind == 'backup.failed' }}">
+      <td class="adm-nowrap">{{ e.when }}</td>
+      <td class="adm-nowrap">{{ e.actor_name }}</td>
+      <td><span class="adm-kind">{{ groups.get(e.group, e.group) }}</span> {{ e.detail }}</td>
+      <td class="adm-nowrap">{{ e.effective_from|day if e.effective_from else "" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if next_before %}<a class="adm-btn" href="/log?before={{ next_before }}{% if group %}&group={{ group }}{% endif %}">Older entries &rsaquo;</a>{% endif %}
+{% else %}
+<p class="adm-muted">{% if group %}No “{{ groups[group] }}” entries in the log yet.{% else %}Nothing logged yet.{% endif %}</p>
+{% endif %}
+{% endblock %}

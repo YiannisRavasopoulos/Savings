@@ -1,0 +1,20 @@
+name: Idea or improvement
+description: Suggest something new or better.
+labels: [idea]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would it help with?
+      description: The situation or problem, in your own words.
+    validations: {required: true}
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How you imagine it working. Sketches or screenshots welcome.
+  - type: dropdown
+    id: part
+    attributes:
+      label: Which part?
+      options: [Savings (the app), Admin app, KDE widget, Installer or release, Not sure]

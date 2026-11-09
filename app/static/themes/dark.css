@@ -1,0 +1,57 @@
+/* Dark theme, loaded on top of light.css. */
+:root {
+  color-scheme: dark;
+
+  --bg: #121513;
+  --surface: #1b1f1c;
+  --surface-alt: #222723;
+  --text: #e4e9e5;
+  --text-muted: #9ba79f;
+  --border: #2f3631;
+  --border-strong: #56615a;
+  --rule: #2a302c;
+  --th-bg: #252b27;
+  --btn-bg: #272d29;
+
+  --accent: #2e7d32;
+  --accent-text: #ffffff;
+  --link: #81c784;
+  --bar-track: #2c332e;
+
+  --danger: #ff6b6b;
+  --amber: #f0b429;
+  --amber-text: #f0b429;
+  --red: #ef5350;
+  --gain: #66bb6a;
+  --loss: #ef5350;
+  --on-amber: #1b1f1c;
+  --on-red: #1b1f1c;
+
+  --flash-ok-bg: #1d3320;
+  --flash-ok-border: #2f6034;
+  --flash-err-bg: #3a1f1f;
+  --flash-err-border: #6b2d2d;
+  --blank: #4a534d;
+  --tag-bg: #272d29;
+  --tag-border: #414a44;
+
+  --chart-spent: #e57373;
+  --chart-income: #66bb6a;
+  --chart-extra: #ffca28;
+  --chart-grid: #2f3631;
+
+  /* shared (joint) categories */
+  --joint: #c7a4f0;
+  --on-joint: #1b1f1c;
+  --joint-bg: #2a2236;
+
+  /* doughnut chart slices, in order */
+  --cat-1: #66bb6a;
+  --cat-2: #64b5f6;
+  --cat-3: #ffca28;
+  --cat-4: #ba68c8;
+  --cat-5: #ff8a65;
+  --cat-6: #4db6ac;
+  --cat-7: #e57373;
+  --cat-8: #b0bec5;
+}
