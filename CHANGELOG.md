@@ -16,7 +16,15 @@ Widget sections say which Savings they need. A widget that's too old for its ser
 
 ---
 
-## Unreleased
+## Savings 1.3.0 · 2026-11-10
+
+**First public release.** Earlier versions (1.0.0 to 1.2.0) were shared privately; their changes
+are listed below.
+
+### Fixed
+
+- **`savings stop`** said the server would start again at boot. It doesn't: a server you stopped
+  stays stopped, even after a reboot, until `savings start`. The message now says so.
 
 ### Changed
 
@@ -25,14 +33,22 @@ Widget sections say which Savings they need. A widget that's too old for its ser
   Savings release. Installing or uninstalling Savings doesn't touch an installed widget. The old
   `--no-widget` installer option is still accepted and does nothing.
 - **Settings → KDE widget:** the install steps point to the widget's own download.
+- **Installing from a copy of the source code** (instead of a release) now stops with a clear
+  message pointing to the Releases page, instead of a confusing error.
+- **Installing and running guide:** rewritten around the installer, with a section on how
+  Savings is reached on your network.
 
-## Widget 1.5.1 · unreleased
+## Widget 1.5.1 · 2026-11-10
+
+**First public release of the widget.** Earlier versions were shared privately. Needs Savings
+1.1.0 or later.
 
 - **Version check:** if the Savings server is newer than the widget understands, the widget
   says "Your Savings server is newer than this widget. Update the widget." instead of breaking.
 - **Installer:** never replaces a newer installed widget with an older one (use `--force` to
-  downgrade on purpose), and says so when the same version is already installed.
-- Works with Savings 1.1.0 and later (the Budget tab needs 1.1.0; older servers show a note).
+  downgrade on purpose), and says so when the same version is already installed. Run from a copy
+  of the source code instead of a release, it says so and points to the Releases page.
+- The Budget tab needs Savings 1.1.0; older servers show a note instead.
 
 ---
 

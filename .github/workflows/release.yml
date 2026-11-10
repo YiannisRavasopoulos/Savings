@@ -1,7 +1,7 @@
 # Publishes a release when a version tag is pushed. Savings and the widget are released
 # separately:
-#   v1.3.0          -> savings-1.3.0.tar.gz        (scripts/make-release.sh --verify)
-#   widget-v1.5.1   -> savings-widget-1.5.1.tar.gz (widget/make-release.sh)
+#   v1.3.0          -> savings-1.3.0.tar.gz        (packaging/app/make-release.sh --verify)
+#   widget-v1.5.1   -> savings-widget-1.5.1.tar.gz (packaging/widget/make-release.sh)
 # The tag must match VERSION / widget/package/metadata.json, and CHANGELOG.md must have the
 # dated section for it; its text becomes the release notes.
 name: Release
@@ -35,12 +35,12 @@ jobs:
 
       - name: Build Savings (with the full test run)
         if: steps.what.outputs.kind == 'app'
-        run: scripts/make-release.sh --verify
+        run: packaging/app/make-release.sh --verify
 
       - name: Build the widget
         if: steps.what.outputs.kind == 'widget'
         # (--verify needs KDE's kpackagetool6, which the runner doesn't have; it's run locally)
-        run: widget/make-release.sh
+        run: packaging/widget/make-release.sh
 
       - name: Publish
         env:
@@ -48,6 +48,6 @@ jobs:
         run: |
           kind="${{ steps.what.outputs.kind }}"; v="${{ steps.what.outputs.version }}"
           if [ "$kind" = app ]; then files=(release/savings-$v.tar.gz release/savings-$v.tar.gz.sha256); title="Savings $v"
-          else files=(widget/release/savings-widget-$v.tar.gz widget/release/savings-widget-$v.tar.gz.sha256); title="Savings widget $v"; fi
-          python3 scripts/release-checks.py notes CHANGELOG.md "$kind" "$v" > notes.md
+          else files=(release/savings-widget-$v.tar.gz release/savings-widget-$v.tar.gz.sha256); title="Savings widget $v"; fi
+          python3 packaging/release-checks.py notes CHANGELOG.md "$kind" "$v" > notes.md
           gh release create "$GITHUB_REF_NAME" "${files[@]}" --title "$title" --notes-file notes.md

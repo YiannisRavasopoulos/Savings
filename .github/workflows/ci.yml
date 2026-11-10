@@ -32,7 +32,7 @@ jobs:
 
       - name: Shell scripts parse
         run: |
-          for f in savings *.sh scripts/*.sh installer/*.sh widget/*.sh widget/installer/*.sh; do
+          for f in savings *.sh scripts/*.sh widget/*.sh packaging/*/*.sh; do
             bash -n "$f" || { echo "::error file=$f::doesn't parse"; exit 1; }
           done
 
@@ -49,4 +49,4 @@ jobs:
 
       - name: Versions have changelog entries
         run: |
-          python3 scripts/release-checks.py changelog CHANGELOG.md app "$(cat VERSION)" || [ $? = 3 ]
+          python3 packaging/release-checks.py changelog CHANGELOG.md app "$(cat VERSION)" || [ $? = 3 ]

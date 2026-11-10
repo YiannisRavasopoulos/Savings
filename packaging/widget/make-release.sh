@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build the Savings widget release to give to friends: release/savings-widget-<version>.tar.gz (+ .sha256)
 #
-#   ./make-release.sh             check, build the widget, scan, pack
-#   ./make-release.sh --verify    ...and then unpack it fresh and install, reinstall, (refuse to)
+#   packaging/widget/make-release.sh             check, build the widget, scan, pack
+#   packaging/widget/make-release.sh --verify    ...and then unpack it fresh and install, reinstall, (refuse to)
 #                                 downgrade, force and remove it
 #                                 in a throwaway home folder (this PC's Plasma isn't touched)
 #
@@ -23,9 +23,10 @@
 #     release with the same version, a widget package older than its source (--no-build).
 # Exit codes: 0 built (maybe with warnings), 1 an error stopped it, 2 wrong usage.
 set -uo pipefail
-root="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+root="$(cd "$(dirname "$(readlink -f "$0")")/../../widget" && pwd)"   # the widget source
 cd "$root"
-outdir="$root/release"            # where finished packages go
+outdir="$root/../release"         # where finished packages go (shared with the app, gitignored)
+pk=../packaging/widget            # the installer that ships in the release
 work="$root/tmp/release"          # scratch space, removed afterwards
 ID="local.savings.widget"         # the id install.sh / uninstall.sh look for
 
@@ -73,11 +74,11 @@ if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then ok "version $version (pack
 else err "the version in package/metadata.json must look like 1.2.3 (got '${version:-missing}')"; fi
 # what friends get: the .plasmoid, the installer and uninstaller, the install guide and the licence.
 # Not shipped: package/ (it's inside the .plasmoid), the README (developer docs), the build scripts.
-INSTALLER=(installer/install.sh installer/uninstall.sh installer/INSTALL.md LICENSE)
+INSTALLER=($pk/install.sh $pk/uninstall.sh $pk/INSTALL.md LICENSE)
 missing=0
 for f in "${INSTALLER[@]}" package/metadata.json build-widget.sh; do [ -e "$f" ] || { err "missing: $f"; missing=1; }; done
 [ "$missing" = 0 ] && ok "all release files present"
-for f in installer/install.sh installer/uninstall.sh build-widget.sh; do
+for f in $pk/install.sh $pk/uninstall.sh build-widget.sh; do
   [ -e "$f" ] && { bash -n "$f" 2>/dev/null || err "shell script doesn't parse: $f (run: bash -n $f)"; }
 done
 [ "$errors" = 0 ] && ok "shell scripts parse"
@@ -125,10 +126,10 @@ stop_if_errors
 
 # A released widget version never changes; and every release has its CHANGELOG.md entry
 # (shared with the app, at the repo root; the app and the widget are released separately).
-if res="$(python3 ../scripts/release-checks.py widget "$widget" release ../release 2>&1)"; then
+if res="$(python3 ../packaging/release-checks.py widget "$widget" ../release 2>&1)"; then
   [ "$res" = same ] && ok "matches the widget $version already released" || ok "widget $version is a new version"
 else err "$res"; fi
-res="$(python3 ../scripts/release-checks.py changelog ../CHANGELOG.md widget "$version" 2>&1)"; rc=$?
+res="$(python3 ../packaging/release-checks.py changelog ../CHANGELOG.md widget "$version" 2>&1)"; rc=$?
 case $rc in 0) ok "CHANGELOG.md has a section for widget $version" ;; 3) warn "$res" ;; *) err "$res" ;; esac
 stop_if_errors
 
@@ -137,7 +138,7 @@ step "Collecting the files"
 name="savings-widget-$version"
 stage="$work/$name"
 rm -rf "$work"; mkdir -p "$stage" "$outdir"
-cp installer/install.sh installer/uninstall.sh installer/INSTALL.md LICENSE "$widget" "$stage/" \
+cp "$pk/install.sh" "$pk/uninstall.sh" "$pk/INSTALL.md" LICENSE "$widget" "$stage/" \
   && chmod 755 "$stage"/*.sh && chmod 644 "$stage"/INSTALL.md "$stage"/LICENSE "$stage"/*.plasmoid \
   || err "copying the files failed"
 stop_if_errors
@@ -161,7 +162,7 @@ if [ -f "$deny" ]; then
 fi
 scan "widget tokens" grep -rIEn 'svw_[A-Za-z0-9_-]{30,}' "$stage" "$peek"
 scan "absolute home paths" grep -rIn '/home/[a-z]' "$stage" "$peek"
-scan "developer-only files" find "$stage" \( -name 'make-release.sh' -o -name 'build-widget.sh' -o -name 'README.md' \
+scan "developer-only files" find "$stage" \( -name 'make-release.sh' -o -name 'release-checks.py' -o -name 'build-widget.sh' -o -name 'README.md' \
        -o -name 'package' -o -name 'dist' -o -name '.gitignore' \) -print
 scan "developer-only mentions in INSTALL.md" grep -In -E 'make-release|build-widget|savings-docker|~/savings|dist/|package/' "$stage/INSTALL.md"
 rm -rf "$peek" "$work/patterns"

@@ -121,7 +121,7 @@ case "$cmd" in
     ;;
   # ------------------------------------------------------------------ lifecycle
   start)   need_docker; docker compose up -d && echo "Started: http://localhost:$PORT" ;;
-  stop)    need_docker; docker compose stop && echo "Stopped. (It starts again at boot unless: savings autostart off)" ;;
+  stop)    need_docker; docker compose stop && echo "Stopped. It stays stopped, also after a reboot, until: savings start" ;;
   restart) need_docker; docker compose restart && echo "Restarted." ;;
   logs)    need_docker; if [ "${1:-}" = "-f" ]; then docker logs -f --tail 50 "$NAME" 2>&1; else docker logs --tail 200 "$NAME" 2>&1; fi ;;
   update)

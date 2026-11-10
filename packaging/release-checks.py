@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Version checks for the two separate releases: scripts/make-release.sh (Savings, the server) and
-widget/make-release.sh (the KDE widget). They're released independently; this keeps each one's
+"""Version checks for the two separate releases: packaging/app/make-release.sh (Savings, the server)
+and packaging/widget/make-release.sh (the KDE widget). They're released independently; this keeps each one's
 version honest and its changelog entry present.
 
   release-checks.py widget PLASMOID RELEASE_DIR...

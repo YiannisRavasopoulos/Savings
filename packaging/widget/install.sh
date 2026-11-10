@@ -24,7 +24,13 @@ say()  { printf '%s\n' "$*"; }
 die()  { printf '\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }
 
 plasmoid="$(ls "$here"/savings-*.plasmoid 2>/dev/null | sort -V | tail -1 || true)"
-[ -n "$plasmoid" ] || die "no savings-*.plasmoid next to this script"
+if [ -z "$plasmoid" ]; then
+  # run from a git clone (packaging/widget/ in the source): that's the source, not a release
+  [ -f "$here/../../widget/package/metadata.json" ] && die "This is the installer's source in a copy of the code, not a release.
+  To install the widget: download savings-widget-X.Y.Z.tar.gz from the project's Releases page,
+  unpack it and run its install.sh. To work on the widget: see widget/README.md."
+  die "no savings-*.plasmoid next to this script"
+fi
 version="$(basename "$plasmoid" .plasmoid | sed 's/^savings-//')"
 command -v kpackagetool6 >/dev/null 2>&1 \
   || die "kpackagetool6 not found: this needs KDE Plasma 6. You can also install $plasmoid from

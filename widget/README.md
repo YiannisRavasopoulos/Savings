@@ -130,8 +130,8 @@ package/                 the widget (installed as local.savings.widget)
                          configGeneral / configAppearance / configNotifications.qml (settings pages)
   contents/config/       settings: connection (server, token, refresh) and appearance
 build-widget.sh          zip it into dist/, optionally install it here
-make-release.sh          builds the release archive (used by the maintainer)
-installer/               what the release ships besides the .plasmoid: install.sh, uninstall.sh, INSTALL.md
+../packaging/widget/     builds the release (maintainer only): make-release.sh, plus the
+                         install.sh, uninstall.sh and INSTALL.md that ship next to the .plasmoid
 ../.release-denylist     personal words a release must never contain (shared with the app; stays on this PC)
 ```
 

@@ -2,83 +2,59 @@
 
 [← Savings](../README.md) · [All docs](README.md)
 
-## Setup
+This page is for **using** Savings. To work on the code, see [Development](development.md).
+Don't install from a copy of the code (`git clone`): download a release instead.
 
-1. **Create the data folder first, next to this folder**, as your normal user:
+## Install
 
-   ```sh
-   mkdir "../Savings Server Data"
-   ```
+You need **Linux** with **Docker Engine** and the **Docker Compose plugin**, and a user that can
+run `docker`. The first build needs internet (Docker downloads Python and Chart.js). After that,
+Savings works offline on your network.
 
-   The layout you end up with:
-
-   ```
-   <parent>/
-   ├── <server folder>/         ← this folder (the server files)
-   └── Savings Server Data/     ← live data (the app creates the subfolders)
-       ├── db/spending.db
-       └── backups/
-           ├── db/              ← daily SQLite snapshots
-           └── csv/             ← daily CSV export zips
-   ```
-
-   If the folder is missing, `docker compose` refuses to start with
-   `bind source path does not exist`. That's deliberate. Otherwise Docker would quietly create
-   it owned by root.
-
-2. Create your `.env`:
+1. Download the latest `savings-X.Y.Z.tar.gz` (and its `.sha256`, to check it) from the
+   **Releases** page.
+2. Unpack it and run the installer:
 
    ```sh
-   cp .env.example .env
+   sha256sum -c savings-X.Y.Z.tar.gz.sha256      # optional
+   tar xf savings-X.Y.Z.tar.gz
+   cd savings-X.Y.Z
+   ./install.sh
    ```
 
-   Check `PUID`/`PGID` against `id -u` and `id -g` so files in the data folder belong to you.
+   It asks a few questions (press Enter to keep each suggestion): where the program goes
+   (`~/Savings/server`), the data folder (`~/Savings/data`), the ports, the timezone and the
+   backup time. Then it builds and starts the server, makes it start at boot and adds
+   **Savings** and **Savings Admin** to your app menu. `./install.sh --help` lists the options,
+   e.g. `--yes` to ask nothing.
+3. Open **Savings Admin** (<http://localhost:8091>) and create the admin login.
+4. Open **Savings** (`http://<this-pc's-ip>:8090/`), choose **Request an account**, and approve
+   it in the admin app. Others in your household do the same from their phones.
+5. In **Settings**, set your regular income and the period start day. In **Categories**, adjust
+   the default categories and set budgets.
 
-3. Start it:
+The release also contains `INSTALL.md`, the same guide in more detail.
 
-   ```sh
-   ./start-savings-server.sh        # = docker compose up -d --build, then opens the browser
-   ```
+**KDE Plasma widget (optional):** a separate download, `savings-widget-X.Y.Z.tar.gz`, with its
+own `./install.sh`. See [KDE Plasma widget](widget.md).
 
-   On first start the app creates the database and the `db/` and `backups/` subfolders.
+## On your network
 
-4. **Create the admin account.** On this PC, open `http://localhost:8091/` (or the
-   "Savings Admin" launcher) and choose an admin username and password.
+| | Address | Reachable from |
+|---|---|---|
+| **Savings** (the app) | `http://<this-pc's-ip>:8090/` | any device on your home network |
+| **Savings Admin** | `http://localhost:8091/` | this PC only |
 
-5. **Create your own account.** Open `http://<server-ip>:8090/`, tap *Request one* on the login
-   page and register. Then approve the request in the admin app and log in. (Or create the user
-   directly in the admin app; it shows a one-time temporary password.)
+- Savings uses plain **HTTP** and is meant for your **home network**. Don't expose port 8090 to
+  the internet. To use it away from home, use a VPN into your network.
+- On a phone, *Add to Home Screen* makes it a full-screen app.
+- If the ports clash with something else on your PC, change `PORT` / `ADMIN_PORT` in `.env`
+  (below) and run `savings update`.
 
-6. In **Settings**, set your regular income (with an "effective from" date) and the period start
-   day if it isn't 28. In **Categories**, adjust the default categories (Groceries, Housing,
-   Utilities, Transport, Dining out, Health, Shopping, Entertainment, Subscriptions, Gifts, Travel,
-   Other) and set budgets.
+## The `savings` command
 
-To update after changing the code: `./start-savings-server.sh` again.
+The installer adds a `savings` command (in `~/.local/bin`). `savings help` lists everything:
 
-### Launchers (KDE)
-
-- `desktop/savings.desktop` ("Savings", green icon) runs `open-savings-client.sh`.
-- `desktop/savings-admin.desktop` ("Savings Admin", blue icon with a gear) runs
-  `open-savings-admin.sh` and opens the admin app.
-
-Both start the container if it isn't running (for example after you stopped it from the tray),
-wait until the page answers, then open it in your browser. Install them and pin them:
-
-```sh
-scripts/install-launchers.sh
-```
-
-Then find them in the app menu, right-click and choose *Pin to Task Manager*. The script fills in
-this folder's real path (the files in `desktop/` are templates with `@DIR@`), so run it again if
-you move the folder. `scripts/install-launchers.sh --remove` takes them out.
-
-`start-savings-server.sh` is for after code changes: it rebuilds the image, then opens the page.
-
-### The `savings` command
-
-`./savings` in this folder manages the server; the installer also links it as `savings` on your
-PATH. `savings help` lists everything. The main commands:
 - **Overview and checkup:** `status`, and `check` (server, Docker health check, app and admin
   answering, database integrity, backup age, disk space, start-at-boot; exit code 1 on problems).
 - **Running it:** `start` / `stop` / `restart` and `logs [-f]`.
@@ -87,56 +63,53 @@ PATH. `savings help` lists everything. The main commands:
 - **Automation:** `autostart on|off` (start with Docker at boot) and `autocheck on|off`. The latter
   is a daily systemd user timer that runs `check --notify` and shows a desktop notification only
   when something's wrong.
+- **Removing it:** `uninstall` removes the program and keeps your data.
 
-`docker-compose.yml` also has a Docker **health check**: every 2 minutes it checks that the app
-answers, so `docker ps` and `savings status` show *healthy* or *unhealthy*.
+Docker also runs a **health check** every 2 minutes, so `docker ps` and `savings status` show
+*healthy* or *unhealthy*.
 
-### Starting on boot
+## Starting on boot
 
-This works the same way as the Jellyfin stack on this machine. Everything runs in one container,
-`savings`: the web app, with the daily backup as a background thread inside it. It has
-`restart: unless-stopped` and Docker starts at boot, so after the first `up -d` it comes back by
-itself after every reboot. No systemd unit or login script is needed.
+Everything runs in one container, `savings`: the web app, with the daily backup as a background
+thread inside it. Docker restarts it at boot, so no systemd unit or login script is needed.
 
-Keep in mind:
+- `savings stop` counts as "stopped on purpose": it stays down after a reboot until you run
+  `savings start`.
+- Docker itself must start at boot (`systemctl is-enabled docker`). The installer offers to
+  enable it.
+- Keep the data folder on a disk that's mounted at boot (from `/etc/fstab`). On a USB disk or
+  network share that's mounted late, the container fails to start.
 
-- `docker compose stop` (or stopping it from a tray widget) counts as "stopped on purpose": it stays down after a reboot
-  until you run `./start-savings-server.sh` again. `docker compose down` removes them entirely.
-  `scripts/restore.sh` starts everything again itself.
-- Docker itself must be enabled at boot. Check with `systemctl is-enabled docker`. Jellyfin
-  coming back after reboots suggests it already is.
-- If you move `DATA_DIR` to a disk that's mounted late (USB, network share), the container will
-  fail to start at boot if the folder isn't there yet. Keep it on a disk that's mounted from
-  `/etc/fstab`.
+## Upgrading
 
-Ports on this machine: Jellyfin uses 8096 and 8920, and Syncthing uses 8384, 22000 and 21027.
-Savings uses **8090** (the app) and **8091** (admin, localhost only). Change `PORT` /
-`ADMIN_PORT` in `.env` if that ever clashes with something.
+Download the newer release and run its `./install.sh` with the same install folder. Your settings
+and data are kept, and the database is upgraded automatically.
 
-## `.env` options
+## Settings (`.env`)
+
+The installer writes your answers to `.env` in the install folder (`~/Savings/server/.env`).
+After editing it, run `savings update`.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DATA_DIR` | `"../Savings Server Data"` | Host folder mounted at `/data` in the container. Keep the quotes. |
-| `PORT` | `8090` | Host port for the web UI. (Jellyfin on this machine uses 8096 and 8920.) |
+| `DATA_DIR` | `~/Savings/data` | Folder with the database and backups. Absolute, or relative to the install folder. Quote it if it has spaces. |
+| `PORT` | `8090` | Port of the app on your network. |
 | `ADMIN_PORT` | `8091` | Port of the admin app. Published on `127.0.0.1` only, so it can't be reached from other devices. |
+| `TZ` | this PC's timezone | Decides what "today" is and when the backup runs, e.g. `Europe/Berlin`. An empty or unknown name falls back to the built-in default. |
 | `BACKUP_TIME` | `03:30` | Daily backup time, 24h. |
 | `BACKUP_RETENTION_DAYS` | `30` | Backups older than this many days are deleted. |
-| `PUID`, `PGID` | `1000` | User/group the container runs as. |
-| `TZ` | `Europe/Athens` | Timezone, e.g. `Europe/Berlin`. An unknown name falls back to the default. |
+| `PUID`, `PGID` | your user's | User/group the container runs as, so files in the data folder belong to you. |
 
-The timezone is **Europe/Athens** unless `.env` sets `TZ=` (e.g. `TZ=Europe/Berlin`). It decides what "today" is and when the backup runs.
+### Moving the data to another disk or PC
 
-### Moving the data to another disk
-
-Stop the app, move the folder, point `DATA_DIR` at it and start again:
+Stop the server, move the data folder, point `DATA_DIR` at it and start again:
 
 ```sh
-docker compose down
-mv "../Savings Server Data" "/mnt/bigdisk/Savings Server Data"
-# in .env:
-DATA_DIR="/mnt/bigdisk/Savings Server Data"
-docker compose up -d
+savings stop
+mv ~/Savings/data /mnt/bigdisk/savings-data
+# in ~/Savings/server/.env:
+DATA_DIR=/mnt/bigdisk/savings-data
+savings update
 ```
 
-`DATA_DIR` can be an absolute path or a path relative to this folder.
+For a new PC: copy the data folder there, run the installer and point *Data folder* at the copy.

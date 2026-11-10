@@ -83,8 +83,14 @@ yesno() {   # yesno "Question" default(y/n)
 abspath() { local p="${1/#\~/$HOME}"; case "$p" in /*) ;; *) p="$PWD/$p" ;; esac; printf '%s' "${p%/}"; }
 port_busy() { command -v ss >/dev/null 2>&1 && ss -ltnH 2>/dev/null | awk '{print $4}' | grep -qE "[:.]$1\$"; }
 
+if [ ! -d "$here/server" ]; then
+  # run from a git clone (packaging/app/ in the source): that's the source, not an installable copy
+  [ -d "$here/../../app" ] && [ -f "$here/../../docker-compose.yml" ] && die "This is the installer's source in a copy of the code, not a release.
+  To install Savings: download savings-X.Y.Z.tar.gz from the project's Releases page, unpack it
+  and run its install.sh. To work on the code: see CONTRIBUTING.md and docs/development.md."
+  die "The server files aren't next to this script (expected $here/server)."
+fi
 say "Savings $version installer"
-[ -d "$here/server" ] || die "The server files aren't next to this script (expected $here/server)."
 
 # ---------- requirements ----------
 step "Checking requirements"

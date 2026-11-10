@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build the Savings release bundle to give to friends: release/savings-<version>.tar.gz (+ .sha256)
 #
-#   scripts/make-release.sh             check, scan, pack
-#   scripts/make-release.sh --verify    ...and then unpack it fresh, build it and run all the tests
+#   packaging/app/make-release.sh             check, scan, pack
+#   packaging/app/make-release.sh --verify    ...and then unpack it fresh, build it and run all the tests
 #
 # Options:
 #   --verify            also test the packed bundle: build it fresh and run this project's tests
@@ -19,10 +19,10 @@
 #     doesn't build or a test fails.
 #   warnings (reported, build continues unless --strict): no .release-denylist, overwriting a
 #     release with the same version, a leftover "## Unreleased" section in CHANGELOG.md.
-# The KDE widget is NOT part of this release: it has its own, widget/make-release.sh.
+# The KDE widget is NOT part of this release: it has its own, packaging/widget/make-release.sh.
 # Exit codes: 0 built (maybe with warnings), 1 an error stopped it, 2 wrong usage.
 set -uo pipefail
-root="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+root="$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)"
 cd "$root"
 outdir="$root/release"            # where finished packages go
 
@@ -74,11 +74,12 @@ if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then ok "version $version"; els
 ALLOW=(app migrations desktop scripts/install-launchers.sh scripts/restore.sh Dockerfile docker-compose.yml
        .dockerignore .env.example requirements.txt README.md CHANGELOG.md SECURITY.md LICENSE VERSION docs open-savings-client.sh open-savings-admin.sh
        savings)
-INSTALLER=(installer/install.sh installer/uninstall.sh installer/INSTALL.md LICENSE)
+pk=packaging/app                  # the installer that ships at the top of the release
+INSTALLER=($pk/install.sh $pk/uninstall.sh $pk/INSTALL.md LICENSE)
 missing=0
 for f in "${ALLOW[@]}" "${INSTALLER[@]}"; do [ -e "$f" ] || { err "missing: $f"; missing=1; }; done
 [ "$missing" = 0 ] && ok "all release files present"
-for f in installer/install.sh installer/uninstall.sh scripts/install-launchers.sh scripts/restore.sh open-savings-*.sh savings; do
+for f in $pk/install.sh $pk/uninstall.sh scripts/install-launchers.sh scripts/restore.sh open-savings-*.sh savings; do
   bash -n "$f" 2>/dev/null || err "shell script doesn't parse: $f (run: bash -n $f)"
 done
 [ "$errors" = 0 ] && ok "shell scripts parse"
@@ -87,7 +88,7 @@ stop_if_errors
 
 # ---------- 2. changelog ----------
 step "Changelog"
-res="$(python3 scripts/release-checks.py changelog CHANGELOG.md app "$version" 2>&1)"; rc=$?
+res="$(python3 packaging/release-checks.py changelog CHANGELOG.md app "$version" 2>&1)"; rc=$?
 case $rc in 0) ok "CHANGELOG.md has a section for Savings $version" ;; 3) warn "$res" ;; *) err "$res" ;; esac
 stop_if_errors
 
@@ -122,7 +123,7 @@ for p in (root / "docs").glob("*.md"):
                "It's released **separately** (`savings-widget-X.Y.Z.tar.gz`, with its own installer), so it can be\nupdated without a new Savings release.", s)
     p.write_text(s)
 PY
-cp installer/install.sh installer/uninstall.sh installer/INSTALL.md LICENSE "$stage/" \
+cp "$pk/install.sh" "$pk/uninstall.sh" "$pk/INSTALL.md" LICENSE "$stage/" \
   || err "copying the installer failed"
 chmod +x "$stage"/*.sh "$stage"/server/*.sh "$stage"/server/scripts/*.sh "$stage"/server/savings 2>/dev/null
 stop_if_errors
@@ -145,7 +146,7 @@ if [ -f .release-denylist ]; then
 fi
 scan "widget tokens" grep -rIEn 'svw_[A-Za-z0-9_-]{30,}' "$stage" "$peek"
 scan "absolute home paths" grep -rIn '/home/[a-z]' "$stage" "$peek"
-scan "developer-only files" find "$stage" \( -path '*/tests' -o -name 'pytest.ini' -o -name 'make-release.sh' \
+scan "developer-only files" find "$stage" \( -path '*/tests' -o -name 'pytest.ini' -o -name 'make-release.sh' -o -name 'release-checks.py' \
        -o -name 'preview*splash*' -o -name 'start-savings-server.sh' -o -name '.gitignore' \) -print
 scan "developer-only mentions in the shipped docs" grep -rIn -E 'make-release|preview-splashes|start-savings-server|~/savings-widget|pytest|tmp/devdata' \
        "$stage/server/README.md" "$stage/INSTALL.md" "$stage/server/docs"

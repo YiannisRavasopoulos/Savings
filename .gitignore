@@ -5,8 +5,8 @@
 .release-denylist
 
 # Build output (releases go on GitHub Releases, not in git) ------------------------------------
+# (both the app and the widget archives, built by packaging/*/make-release.sh)
 release/
-widget/release/
 widget/dist/
 *.tar.gz
 *.sha256
