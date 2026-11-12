@@ -16,6 +16,23 @@ Widget sections say which Savings they need. A widget that's too old for its ser
 
 ---
 
+## Savings 1.4.0 · 2026-11-12
+
+### New
+
+- **Budget periods can be named after the month they start in.** Paid on 5 November for November?
+  Set the start day to 5 and choose *"starts in"*: "November" is then 5 Nov – 4 Dec. The default
+  (named after the month it ends in, e.g. 28 Oct – 27 Nov) is unchanged, so existing accounts
+  look exactly as before.
+
+### Changed
+
+- **Settings → Budget period** explains the start day in plain words and shows, as you type,
+  which period today falls in. The old wording ("day S of October to day S−1 of November") read
+  as if start day 1 meant 1 Oct – 31 Oct; it has always meant the calendar month.
+
+---
+
 ## Savings 1.3.0 · 2026-11-10
 
 **First public release.** Earlier versions (1.0.0 to 1.2.0) were shared privately; their changes

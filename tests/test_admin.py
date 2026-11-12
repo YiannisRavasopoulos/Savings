@@ -183,7 +183,7 @@ def test_actions_on_missing_user_show_error_popup(adm):
 def test_backup_now_and_system_info(adm, app):
     assert "done=backup" in _post(adm, "/backup-now").headers["location"]
     page = adm.get("/").text
-    assert "schema v16" in page and "spending-" in page
+    assert "schema v17" in page and "spending-" in page
 
 
 def test_change_admin_password(adm, admin_app):

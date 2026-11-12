@@ -34,7 +34,7 @@ PASSWORD_CHANGE_PATHS = ("/profile/password", "/logout")
 
 
 def period_of(conn, uid: int, iso_date: str) -> str:
-    y, m = period.period_for_date(date.fromisoformat(iso_date), summary.get_start_day(conn, uid))
+    y, m = summary.get_period_rule(conn, uid).for_date(date.fromisoformat(iso_date))
     return period.period_key(y, m)
 
 
@@ -55,7 +55,7 @@ def resolve_period(conn, uid: int, params) -> tuple[int, int]:
 
 
 def period_ctx(conn, uid: int, y: int, m: int) -> dict:
-    start, end = period.period_bounds(y, m, summary.get_start_day(conn, uid))
+    start, end = summary.get_period_rule(conn, uid).bounds(y, m)
     return {
         "year": y,
         "month": m,

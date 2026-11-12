@@ -22,7 +22,7 @@ from datetime import date
 from . import summary
 from .db import BUDGET_AS_OF_SQL
 from .joint import VISIBLE_SQL
-from .period import MONTH_ABBR, period_bounds, period_for_date, period_key, period_label, shift_period
+from .period import MONTH_ABBR, period_key, period_label, shift_period
 
 HISTORY = 12          # finished periods used as history
 MIN_HISTORY = 3       # fewer than this: no suggestions
@@ -76,24 +76,24 @@ def _confidence(n: int, spread: float) -> str:
 
 
 def forecast(conn: sqlite3.Connection, uid: int, today: date) -> dict:
-    start_day = summary.get_start_day(conn, uid)
-    cur = period_for_date(today, start_day)
+    rule = summary.get_period_rule(conn, uid)
+    cur = rule.for_date(today)
     first = conn.execute(f"SELECT MIN(e.date) FROM expenses e {MY_SHARE_JOIN}", (uid,)).fetchone()[0]
-    first_key = period_for_date(date.fromisoformat(first), start_day) if first else cur
+    first_key = rule.for_date(date.fromisoformat(first)) if first else cur
     hist_keys = [k for k in (shift_period(*cur, -i) for i in range(HISTORY, 0, -1)) if k >= first_key]
     n = len(hist_keys)
     result = {"n_history": n, "min_history": MIN_HISTORY, "ready": n >= MIN_HISTORY}
     if not result["ready"]:
         return result
 
-    bounds = [period_bounds(y, m, start_day) for y, m in hist_keys]
+    bounds = [rule.bounds(y, m) for y, m in hist_keys]
     spend = [_period_spending(conn, uid, s, e, include_one_offs=False) for s, e in bounds]
     typical, cautious = percentile(spend, 0.5), percentile(spend, 0.75)
     spread = (percentile(spend, 0.75) - percentile(spend, 0.25)) / typical if typical else 1.0
     hist_left = [summary.regular_income_for(conn, uid, e) - s for (_, e), s in zip(bounds, spend)]
 
     # the current period: real spending so far + the usual spending for the rest of it
-    c_start, c_end = period_bounds(*cur, start_day)
+    c_start, c_end = rule.bounds(*cur)
     day = (today - c_start).days + 1
     spent_so_far = _period_spending(conn, uid, c_start, today, include_one_offs=True)
     usual_by_now = percentile([_by_day(conn, uid, s, e, day) for s, e in bounds], 0.5)
@@ -105,7 +105,7 @@ def forecast(conn: sqlite3.Connection, uid: int, today: date) -> dict:
     cum_typ = cum_cau = 0.0
     for k in range(HORIZON):
         y, m = shift_period(*cur, k)
-        start, end = period_bounds(y, m, start_day)
+        start, end = rule.bounds(y, m)
         income = summary.regular_income_for(conn, uid, end)
         if k == 0:
             income += extra_now

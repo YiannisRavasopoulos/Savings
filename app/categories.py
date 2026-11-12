@@ -176,7 +176,7 @@ def budget_overview(conn, uid: int, year: int, month: int, cats) -> dict:
     """Total of everything you've budgeted for the period: your active categories' budgets plus
     your part of each shared category's budget, against income and your spending in them."""
     ms = summary.month_summary(conn, uid, year, month)
-    _, end = period.period_bounds(year, month, summary.get_start_day(conn, uid))
+    _, end = summary.get_period_rule(conn, uid).bounds(year, month)
     personal_ids = {c["id"] for c in cats if not c["archived"]}
     shared_ids = {c["id"] for c in ms["categories"] if c["joint"]
                   and joint.membership(conn, c["id"], uid) and joint.is_member_on(joint.membership(conn, c["id"], uid), end)}
@@ -204,12 +204,12 @@ def render_page(request: Request, conn, status_code: int = 200, *, errors=None, 
                 reopen: str | None = None, alert: str | None = None):
     uid = user_id(request)
     y, m = current_period(conn, uid)
-    current_end = period.period_bounds(y, m, summary.get_start_day(conn, uid))[1]
+    current_end = summary.get_period_rule(conn, uid).bounds(y, m)[1]
     cats = db.all_categories(conn, uid, current_end)
     usage = {c["id"]: _usage(conn, c["id"]) for c in cats}
     personal = [c for c in cats if not c["is_joint"]]
     today = config.today()
-    start, end = period.period_bounds(y, m, summary.get_start_day(conn, uid))
+    start, end = summary.get_period_rule(conn, uid).bounds(y, m)
     shared = []
     for c in cats:
         if not c["is_joint"]:

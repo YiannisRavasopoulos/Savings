@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, Request
 
-from . import audit, auth, config, forms
+from . import audit, auth, config, forms, period, summary
 from .money import parse_amount
 from .web import available_themes, get_conn, redirect, render, user_id, valid_theme
 
@@ -143,6 +143,13 @@ async def register(request: Request, conn=Depends(get_conn)):
 
 # --- profile --------------------------------------------------------------------------
 
+def _period_preview(conn, uid: int) -> str:
+    """e.g. 'Today is in “November 2026”: 5 Nov – 4 Dec 2026.' (the JS preview says the same)."""
+    rule = summary.get_period_rule(conn, uid)
+    y, m = rule.for_date(config.today())
+    return f"Today is in “{period.period_label(y, m)}”: {period.range_label(*rule.bounds(y, m))}."
+
+
 def render_profile(request: Request, conn, status_code: int = 200, errors=None, values=None,
                    reopen: str | None = None, alert: str | None = None, new_token: dict | None = None):
     from .api import widget_tokens
@@ -163,7 +170,7 @@ def render_profile(request: Request, conn, status_code: int = 200, errors=None, 
         saved=request.query_params.get("saved") == "1",
         income_msg=INCOME_MESSAGES.get(request.query_params.get("income", "")),
         ended=request.query_params.get("ended"),
-        today=config.today().isoformat(),
+        today=config.today().isoformat(), period_preview=_period_preview(conn, uid),
         widget_tokens=widget_tokens(conn, uid), new_token=new_token,
         server_url=str(request.base_url).rstrip("/"), revoked=request.query_params.get("revoked") == "1",
     )
@@ -288,19 +295,35 @@ async def set_name(request: Request, conn=Depends(get_conn)):
     return _saved()
 
 
+NAMING_TEXT = {"end": "the month it ends in", "start": "the month it starts in"}
+
+
 @router.post("/profile/start-day")
 async def set_start_day(request: Request, conn=Depends(get_conn)):
-    raw = ((await request.form()).get("start_day") or "").strip()
+    form = await request.form()
+    raw = (form.get("start_day") or "").strip()
+    naming = (form.get("period_naming") or request.state.user["period_naming"]).strip()
+    values = {"start_day": raw, "period_naming": naming}
+    errors = {}
     try:
         value = int(raw)
         if not 1 <= value <= 28:
             raise ValueError
     except ValueError:
-        return render_profile(request, conn, 422, errors={"start_day": "Enter a day from 1 to 28."},
-                              values={"start_day": raw})
+        errors["start_day"] = "Enter a day from 1 to 28."
+    if naming not in NAMING_TEXT:
+        errors["period_naming"] = "Choose how periods are named."
+    if errors:
+        return render_profile(request, conn, 422, errors=errors, values=values)
+    user = request.state.user
     with conn:
-        conn.execute("UPDATE users SET period_start_day = ? WHERE id = ?", (value, user_id(request)))
-        audit.log(conn, user_id(request), "account.start_day", f"Set the budget period start day to {value}")
+        conn.execute("UPDATE users SET period_start_day = ?, period_naming = ? WHERE id = ?",
+                     (value, naming, user_id(request)))
+        if value != user["period_start_day"]:
+            audit.log(conn, user_id(request), "account.start_day", f"Set the budget period start day to {value}")
+        if naming != user["period_naming"]:
+            audit.log(conn, user_id(request), "account.period_naming",
+                      f"Budget periods are now named after {NAMING_TEXT[naming]}")
     return _saved()
 
 

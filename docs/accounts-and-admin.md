@@ -7,7 +7,7 @@
 - **Log in** at `http://<server-ip>:8090/`. You stay logged in for 90 days per device. **Log out**
   is at the bottom of Settings.
 - **No account?** *Request one* on the login page. You can log in once the admin approves it.
-- **Settings**: your display name, password, regular income, period start day, theme, logged-in
+- **Settings**: your display name, password, regular income, budget period (start day and naming), theme, logged-in
   devices ("Log out all other devices"), *Download my data* (your data only, as CSV) and the
   "Request from admin" form.
 - Changing your password logs out your other devices.

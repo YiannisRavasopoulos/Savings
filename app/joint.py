@@ -20,7 +20,6 @@ from __future__ import annotations
 import sqlite3
 from datetime import date, timedelta
 
-from .period import period_bounds, period_for_date
 
 FULL = 10_000            # 100.00 % in basis points
 MAX_MEMBERS = 8
