@@ -16,6 +16,16 @@ Widget sections say which Savings they need. A widget that's too old for its ser
 
 ---
 
+## Widget 1.6.1 · 2026-11-14
+
+### Fixed
+
+- **Budget pace** was cut off at €0: when you're behind, the amount available on a day is
+  negative, and the line was squashed flat along the bottom edge. The chart now goes below €0,
+  with a faint €0 line, the bars standing on it and the lowest value labelled.
+
+---
+
 ## Savings 1.6.0 · 2026-11-14
 
 ### Changed
