@@ -92,6 +92,14 @@ def test_admin_port_is_published_only_on_localhost():
     assert '"127.0.0.1:${ADMIN_PORT:-8091}:8091"' in compose
 
 
+def test_app_port_is_ipv4_only_by_default():
+    """Not published on IPv6: many homes give every device a public IPv6 address."""
+    compose = open("docker-compose.yml").read()
+    assert '"${BIND_ADDRESS:-0.0.0.0}:${PORT:-8090}:8080"' in compose
+    assert '"${PORT:-8090}:8080"' not in compose                 # the old, every-address form
+    assert "\nBIND_ADDRESS=0.0.0.0\n" in open(".env.example").read()
+
+
 # --- registration approval ----------------------------------------------------------------
 
 def test_register_then_approve_then_login(adm, app, conn):
@@ -183,7 +191,7 @@ def test_actions_on_missing_user_show_error_popup(adm):
 def test_backup_now_and_system_info(adm, app):
     assert "done=backup" in _post(adm, "/backup-now").headers["location"]
     page = adm.get("/").text
-    assert "schema v16" in page and "spending-" in page
+    assert "schema v17" in page and "spending-" in page
 
 
 def test_change_admin_password(adm, admin_app):

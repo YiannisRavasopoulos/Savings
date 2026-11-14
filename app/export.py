@@ -86,7 +86,7 @@ def queries(user_id: int | None) -> list[tuple[str, str, dict]]:
 
 MESSAGES_SQL = ("SELECT id, user_id, username, display_name, subject, body, created_at "
                 "FROM admin_messages ORDER BY id")
-USERS_SQL = ("SELECT id, username, display_name, status, period_start_day, theme, created_at, "
+USERS_SQL = ("SELECT id, username, display_name, status, period_start_day, period_naming, theme, created_at, "
              "approved_at, last_login_at FROM users ORDER BY id")
 
 

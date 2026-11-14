@@ -80,8 +80,7 @@ def render_page(request: Request, conn, cid: int, status_code: int = 200, *, ale
     except Refused as e:
         return render(request, "shared_gone.html", e.status, active="categories", alert=str(e))
     # "This period" = the viewer's own current period: shared expenses count there like any other.
-    s = summary.get_start_day(conn, uid)
-    start, end = period.period_bounds(*period.period_for_date(today, s), s)
+    start, end = summary.get_period_rule(conn, uid).current_bounds(today)
     split = joint.split_at(conn, cid, today)
     expenses = conn.execute(
         "SELECT e.*, u.display_name AS paid_by FROM expenses e JOIN users u ON u.id = e.user_id "

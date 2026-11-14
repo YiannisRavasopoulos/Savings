@@ -47,6 +47,17 @@ own `./install.sh`. See [KDE Plasma widget](widget.md).
 
 - Savings uses plain **HTTP** and is meant for your **home network**. Don't expose port 8090 to
   the internet. To use it away from home, use a VPN into your network.
+- It is published on **IPv4 only** (`BIND_ADDRESS=0.0.0.0`). Many internet connections give every
+  device a public IPv6 address, so publishing on IPv6 could make Savings reachable from the
+  internet whenever the router lets IPv6 in. If you really need IPv6 on your network, add a
+  `docker-compose.override.yml` next to `docker-compose.yml` (upgrades keep it):
+
+  ```yaml
+  services:
+    app:
+      ports:
+        - "[::]:${PORT:-8090}:8080"
+  ```
 - On a phone, *Add to Home Screen* makes it a full-screen app.
 - If the ports clash with something else on your PC, change `PORT` / `ADMIN_PORT` in `.env`
   (below) and run `savings update`.
@@ -94,6 +105,7 @@ After editing it, run `savings update`.
 |---|---|---|
 | `DATA_DIR` | `~/Savings/data` | Folder with the database and backups. Absolute, or relative to the install folder. Quote it if it has spaces. |
 | `PORT` | `8090` | Port of the app on your network. |
+| `BIND_ADDRESS` | `0.0.0.0` | Address the app is published on: `0.0.0.0` = every IPv4 address (not IPv6), `127.0.0.1` = this PC only, or one LAN address. |
 | `ADMIN_PORT` | `8091` | Port of the admin app. Published on `127.0.0.1` only, so it can't be reached from other devices. |
 | `TZ` | this PC's timezone | Decides what "today" is and when the backup runs, e.g. `Europe/Berlin`. An empty or unknown name falls back to the built-in default. |
 | `BACKUP_TIME` | `03:30` | Daily backup time, 24h. |

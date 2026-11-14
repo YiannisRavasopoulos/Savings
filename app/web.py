@@ -65,4 +65,4 @@ def redirect(url: str) -> RedirectResponse:
 
 
 def current_period(conn, uid: int) -> tuple[int, int]:
-    return period.period_for_date(config.today(), summary.get_start_day(conn, uid))
+    return summary.get_period_rule(conn, uid).for_date(config.today())

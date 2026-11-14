@@ -13,7 +13,7 @@ import calendar
 from datetime import date
 
 from . import audit, joint
-from .period import period_bounds, period_for_date
+from .period import PeriodRule
 
 FREQUENCIES = {1: "Monthly", 3: "Every 3 months", 6: "Every 6 months", 12: "Yearly"}
 MAX_CATCH_UP = 120          # never create more than this many expenses for one rule in one go
@@ -42,8 +42,8 @@ def first_index_after(rule, d: date, inclusive: bool = False) -> int:
 
 def horizon(conn, uid: int, today: date) -> date:
     """Payments are created up to the last day of the user's current period."""
-    start_day = conn.execute("SELECT period_start_day FROM users WHERE id = ?", (uid,)).fetchone()[0]
-    return period_bounds(*period_for_date(today, start_day), start_day)[1]
+    row = conn.execute("SELECT period_start_day, period_naming FROM users WHERE id = ?", (uid,)).fetchone()
+    return PeriodRule.lenient(*row).current_bounds(today)[1]
 
 
 def next_date(rule, today: date) -> date | None:

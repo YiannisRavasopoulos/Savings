@@ -124,16 +124,61 @@
 </div>
 
 <h2>Budget period</h2>
-<form method="post" action="/profile/start-day" class="panel">
+{% set naming = values.get('period_naming', user.period_naming) %}
+<form method="post" action="/profile/start-day" class="panel" id="period-form">
   <div class="field{% if errors.start_day %} has-error{% endif %}">
     <label for="f-start_day">Period start day (1–28)</label>
     <input id="f-start_day" name="start_day" type="number" min="1" max="28" required
            value="{{ values.get('start_day', user.period_start_day) }}" style="max-width: 8em">
     {{ error(errors, "start_day") }}
-    <p class="muted">With start day S, the period “November” runs from day S of October to day S−1 of November.
-      With 1 it is the calendar month. Changing this re-groups all past entries.</p>
+    <p class="muted small">Usually the day you get paid. With 1, periods are plain calendar months.</p>
   </div>
-  <button type="submit">Save start day</button>
+  <div class="field{% if errors.period_naming %} has-error{% endif %}" role="radiogroup" aria-labelledby="naming-title">
+    <span class="field-title" id="naming-title">Name each period after the month it…</span>
+    <label class="choice">
+      <input type="radio" name="period_naming" value="start" {% if naming == "start" %}checked{% endif %}>
+      <span><strong>starts in</strong> — paid on 5 November for November: “November” is 5 Nov – 4 Dec.</span>
+    </label>
+    <label class="choice">
+      <input type="radio" name="period_naming" value="end" {% if naming != "start" %}checked{% endif %}>
+      <span><strong>ends in</strong> — paid on 28 October for November: “November” is 28 Oct – 27 Nov.</span>
+    </label>
+    {{ error(errors, "period_naming") }}
+  </div>
+  <p class="period-preview" id="period-preview" aria-live="polite">{{ period_preview }}</p>
+  <p class="muted small">Changing these re-groups all past entries into the new periods. Income and budget
+    history keep their dates.</p>
+  <button type="submit">Save budget period</button>
+  <script>
+    (function () {   // live preview; the same rules as app/period.py
+      var form = document.getElementById("period-form"), out = document.getElementById("period-preview");
+      var M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      var NAMES = ["January","February","March","April","May","June","July","August","September",
+                   "October","November","December"];
+      var today = new Date("{{ today }}T12:00:00");
+      function d(y, m, day) { return new Date(y, m, day, 12); }            // m is 0-based; rolls over
+      function fmt(a, b) {
+        return a.getDate() + " " + M[a.getMonth()] + (a.getFullYear() !== b.getFullYear() ? " " + a.getFullYear() : "") +
+               " – " + b.getDate() + " " + M[b.getMonth()] + " " + b.getFullYear();
+      }
+      function update() {
+        var s = parseInt(form.start_day.value, 10), checked = form.querySelector("input[name=period_naming]:checked");
+        if (!(s >= 1 && s <= 28) || !checked) { out.textContent = "Enter a start day from 1 to 28."; return; }
+        var y = today.getFullYear(), m = today.getMonth(), day = today.getDate(), start, end, label;
+        if (s === 1) { start = d(y, m, 1); end = d(y, m + 1, 0); label = d(y, m, 1); }
+        else if (checked.value === "start") {
+          if (day < s) m -= 1;
+          start = d(y, m, s); end = d(y, m + 1, s - 1); label = start;
+        } else {
+          if (day >= s) m += 1;
+          start = d(y, m - 1, s); end = d(y, m, s - 1); label = end;
+        }
+        out.textContent = "Today is in “" + NAMES[label.getMonth()] + " " + label.getFullYear() + "”: " + fmt(start, end) + ".";
+      }
+      form.addEventListener("input", update);
+      form.addEventListener("change", update);
+    })();
+  </script>
 </form>
 
 <h2>Appearance</h2>

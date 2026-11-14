@@ -319,6 +319,8 @@ dialog h2 { margin: 0 0 12px; }
 .choice { display: flex; gap: 10px; align-items: flex-start; font-weight: normal; margin: 12px 0 6px; cursor: pointer; }
 .choice input { width: 22px; height: 22px; margin-top: 1px; flex: none; accent-color: var(--accent); }
 .choice-detail { margin: 0 0 6px 32px; }
+.field-title { display: block; font-weight: 600; margin-bottom: 4px; }
+.period-preview { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; }
 
 /* login / register */
 .auth-box { max-width: 420px; margin: 24px auto; }

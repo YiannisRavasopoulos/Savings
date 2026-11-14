@@ -16,6 +16,28 @@ Widget sections say which Savings they need. A widget that's too old for its ser
 
 ---
 
+## Savings 1.4.0 · 2026-11-14
+
+### New
+
+- **Budget periods can be named after the month they start in.** Paid on 5 November for November?
+  Set the start day to 5 and choose *"starts in"*: "November" is then 5 Nov – 4 Dec. The default
+  (named after the month it ends in, e.g. 28 Oct – 27 Nov) is unchanged, so existing accounts
+  look exactly as before.
+
+### Changed
+
+- **Savings is published on IPv4 only.** Before, Docker also published it on IPv6, and many
+  connections give every device a public IPv6 address, so Savings could be reachable from the
+  internet when the router let IPv6 in. The new `BIND_ADDRESS` setting (default `0.0.0.0`)
+  chooses the address; upgrades get the safe default without changing `.env`. Need IPv6 on your
+  network? See *On your network* in the install guide.
+- **Settings → Budget period** explains the start day in plain words and shows, as you type,
+  which period today falls in. The old wording ("day S of October to day S−1 of November") read
+  as if start day 1 meant 1 Oct – 31 Oct; it has always meant the calendar month.
+
+---
+
 ## Savings 1.3.0 · 2026-11-10
 
 **First public release.** Earlier versions (1.0.0 to 1.2.0) were shared privately; their changes

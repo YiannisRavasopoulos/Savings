@@ -9,6 +9,8 @@ Savings is designed for a **home network or a VPN**, not the public internet.
   address.
 - Logins use salted, hashed passwords (scrypt), session cookies, cross-site request
   blocking and login throttling. New accounts must be approved in the admin app.
+- The app is published on **IPv4 only** by default (`BIND_ADDRESS=0.0.0.0`), not on IPv6, where
+  devices often have public addresses.
 - The **admin app** listens only on the PC that runs Savings (`127.0.0.1`).
 - The **KDE widget** uses a read-only token that can only read its owner's summary. The server
   stores only a fingerprint (sha256) of each token, and tokens can be revoked in Settings.

@@ -7,7 +7,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from .db import BUDGET_AS_OF_SQL
 from .joint import VISIBLE_SQL
-from .period import MONTH_ABBR, period_bounds, period_key, range_label
+from .period import MONTH_ABBR, PeriodRule, period_key, range_label
 
 # What an expense costs each person lives in expense_shares (one row per person): a personal
 # expense costs its owner the full amount; a shared one costs each member their share. Every
@@ -26,10 +26,16 @@ def _today_iso() -> str:
 MY_SHARE_JOIN = "JOIN expense_shares s ON s.expense_id = e.id AND s.user_id = :uid"
 
 
+def get_period_rule(conn: sqlite3.Connection, user_id: int) -> PeriodRule:
+    """The user's period settings: start day and whether periods are named after the month
+    they end in or start in. Missing or invalid values fall back to the defaults."""
+    row = conn.execute("SELECT period_start_day, period_naming FROM users WHERE id = ?",
+                       (user_id,)).fetchone()
+    return PeriodRule.lenient(*row) if row else PeriodRule()
+
+
 def get_start_day(conn: sqlite3.Connection, user_id: int) -> int:
-    row = conn.execute("SELECT period_start_day FROM users WHERE id = ?", (user_id,)).fetchone()
-    s = row[0] if row else 28
-    return s if 1 <= s <= 28 else 28
+    return get_period_rule(conn, user_id).start_day
 
 
 def regular_income_for(conn: sqlite3.Connection, user_id: int, period_end: date) -> int:
@@ -63,8 +69,7 @@ def round_div(total: int, n: int) -> int:
 
 
 def month_summary(conn: sqlite3.Connection, user_id: int, year: int, month: int) -> dict:
-    start_day = get_start_day(conn, user_id)
-    start, end = period_bounds(year, month, start_day)
+    start, end = get_period_rule(conn, user_id).bounds(year, month)
     args = (start.isoformat(), end.isoformat())
 
     # Budget = the user's own budget entry in effect on the period's last day. Spent = the user's
@@ -137,10 +142,10 @@ def year_summary(conn: sqlite3.Connection, user_id: int, year: int, today: date)
     Periods that haven't started yet (start > today) are None and shown blank.
     Averages are over the periods that have at least one expense.
     """
-    start_day = get_start_day(conn, user_id)
+    rule = get_period_rule(conn, user_id)
     periods, months = [], []
     for m in range(1, 13):
-        start, end = period_bounds(year, m, start_day)
+        start, end = rule.bounds(year, m)
         future = start > today
         periods.append({"month": m, "label": MONTH_ABBR[m], "key": period_key(year, m),
                         "range": range_label(start, end), "future": future})
@@ -179,8 +184,7 @@ def year_summary(conn: sqlite3.Connection, user_id: int, year: int, today: date)
     ]
     return {
         "year": year,
-        "range": range_label(period_bounds(year, 1, start_day)[0],
-                             period_bounds(year, 12, start_day)[1]),
+        "range": range_label(rule.bounds(year, 1)[0], rule.bounds(year, 12)[1]),
         "periods": periods,
         "categories": category_rows,
         "totals": totals,
@@ -273,10 +277,9 @@ def budget_balance(conn: sqlite3.Connection, user_id: int, ms: dict, today: date
 
 def dashboard(conn: sqlite3.Connection, user_id: int, today: date, history: int = 6) -> dict:
     """Numbers for the home page: the current period plus the last `history` periods."""
-    from .period import period_for_date, period_label, shift_period
+    from .period import period_label, shift_period
 
-    start_day = get_start_day(conn, user_id)
-    year, month = period_for_date(today, start_day)
+    year, month = get_period_rule(conn, user_id).for_date(today)
     cur = month_summary(conn, user_id, year, month)
 
     days_left = (cur["end"] - today).days + 1          # today counts as a day left
@@ -354,14 +357,14 @@ def _daily_cumulative(conn, user_id: int, start: date, end: date, days: int) -> 
 def trends(conn: sqlite3.Connection, user_id: int, today: date, n: int = 12) -> dict:
     """Everything on the Trends page. The current period is "so far": it is shown in the charts
     but left out of every average and comparison. Periods before the first expense are skipped."""
-    from .period import period_for_date, shift_period
+    from .period import shift_period
 
-    start_day = get_start_day(conn, user_id)
-    cur_key = period_for_date(today, start_day)
+    rule = get_period_rule(conn, user_id)
+    cur_key = rule.for_date(today)
     first = conn.execute(f"SELECT MIN(e.date) FROM expenses e {MY_SHARE_JOIN}", {"uid": user_id}).fetchone()[0]
     keys = [shift_period(*cur_key, -k) for k in range(n - 1, -1, -1)]
     if first is not None:
-        first_key = period_for_date(date.fromisoformat(first), start_day)
+        first_key = rule.for_date(date.fromisoformat(first))
         keys = [k for k in keys if k >= first_key]
     result = {"n": n, "ranges": TREND_RANGES, "empty": first is None or not keys}
     if result["empty"]:
@@ -454,13 +457,13 @@ RECORD_PERIODS = 12
 def budget_record(conn: sqlite3.Connection, user_id: int, today: date, n: int = RECORD_PERIODS) -> dict:
     """How often each category ended a period within its budget, over the finished periods among
     the last `n` (from the first expense on). Sorted by the share within, lowest first."""
-    from .period import period_for_date, shift_period
+    from .period import shift_period
 
-    start_day = get_start_day(conn, user_id)
-    cur = period_for_date(today, start_day)
+    rule = get_period_rule(conn, user_id)
+    cur = rule.for_date(today)
     first = conn.execute(f"SELECT MIN(e.date) FROM expenses e {MY_SHARE_JOIN}", {"uid": user_id}).fetchone()[0]
     keys = [shift_period(*cur, -k) for k in range(n - 1, 0, -1)]          # finished periods only
-    keys = [k for k in keys if first is not None and k >= period_for_date(date.fromisoformat(first), start_day)]
+    keys = [k for k in keys if first is not None and k >= rule.for_date(date.fromisoformat(first))]
     complete = [month_summary(conn, user_id, y, m) for y, m in keys]
     cats = conn.execute(f"SELECT c.id, c.name, c.is_joint FROM categories c WHERE {VISIBLE_SQL} "
                         "ORDER BY c.is_joint, c.sort_order, c.name", {"uid": user_id}).fetchall()
@@ -488,10 +491,8 @@ RESET_NOTICE_DAYS = 3
 def reset_notice(conn: sqlite3.Connection, user_id: int, today: date) -> dict | None:
     """Shown during the last 3 days before the user's own period resets."""
     from datetime import timedelta
-    from .period import period_for_date
 
-    s = get_start_day(conn, user_id)
-    _, end = period_bounds(*period_for_date(today, s), s)
+    _, end = get_period_rule(conn, user_id).current_bounds(today)
     resets = end + timedelta(days=1)
     days = (resets - today).days                                   # 1, 2 or 3 -> show
     if days > RESET_NOTICE_DAYS:

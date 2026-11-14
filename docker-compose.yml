@@ -15,7 +15,9 @@ services:
       - path: .env
         required: false
     ports:
-      - "${PORT:-8090}:8080"                       # the app, reachable from your LAN/VPN
+      # the app, reachable from your LAN/VPN. IPv4 only by default (BIND_ADDRESS=0.0.0.0), so it
+      # isn't published on a public IPv6 address. See docs/install.md to change it.
+      - "${BIND_ADDRESS:-0.0.0.0}:${PORT:-8090}:8080"
       - "127.0.0.1:${ADMIN_PORT:-8091}:8091"       # admin, only from this PC
     healthcheck:                            # Docker marks the container unhealthy if the app stops answering
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/favicon.ico', timeout=5)"]
