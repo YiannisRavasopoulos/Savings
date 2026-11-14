@@ -42,7 +42,7 @@ def first_index_after(rule, d: date, inclusive: bool = False) -> int:
 
 def horizon(conn, uid: int, today: date) -> date:
     """Payments are created up to the last day of the user's current period."""
-    row = conn.execute("SELECT period_start_day, period_naming FROM users WHERE id = ?", (uid,)).fetchone()
+    row = conn.execute("SELECT payday, period_naming FROM users WHERE id = ?", (uid,)).fetchone()
     return PeriodRule.lenient(*row).current_bounds(today)[1]
 
 

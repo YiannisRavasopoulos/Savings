@@ -30,7 +30,7 @@ Savings works offline on your network.
 3. Open **Savings Admin** (<http://localhost:8091>) and create the admin login.
 4. Open **Savings** (`http://<this-pc's-ip>:8090/`), choose **Request an account**, and approve
    it in the admin app. Others in your household do the same from their phones.
-5. In **Settings**, set your regular income and the period start day. In **Categories**, adjust
+5. In **Settings**, set your regular income and your payday (Budget period). In **Categories**, adjust
    the default categories and set budgets.
 
 The release also contains `INSTALL.md`, the same guide in more detail.

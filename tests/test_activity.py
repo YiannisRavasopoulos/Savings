@@ -54,13 +54,13 @@ def test_category_income_and_profile_actions_are_logged(client, conn):
     _post(client, "/income", date="2026-11-02", description="Bonus", amount="300", notes="")
     _post(client, "/profile/regular-income", income_amount="2000", income_from="2026-01-01")
     _post(client, "/profile/name", display_name="Alice B")
-    _post(client, "/profile/start-day", start_day="1")
+    _post(client, "/profile/start-day", payday="1", period_naming="start")
     _post(client, "/profile/password", current=PASSWORD, password="a brand new pw", confirm="a brand new pw")
     _post(client, "/request", subject="idea", message="hello admin")
     kinds = _kinds(conn)
     for k in ("category.added", "category.renamed", "category.budget", "category.archived", "category.unarchived",
               "category.deleted", "income.extra_added", "income.regular_set", "account.renamed",
-              "account.start_day", "account.password_changed", "account.request_sent"):
+              "account.payday", "account.password_changed", "account.request_sent"):
         assert k in kinds, k
     text = " ".join(e[2] for e in _log(conn))
     assert "Renamed “Pets” to “Pet stuff”" in text and "Set their budget for “Pet stuff”" in text

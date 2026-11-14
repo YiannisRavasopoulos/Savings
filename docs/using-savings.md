@@ -4,24 +4,26 @@
 
 ## Budget periods
 
-A "month" is a budget period. It is set in **Settings → Budget period** by two things:
+A "month" is a budget period. Set it in **Settings → Budget period** with one sentence:
 
-- the **start day S** (1–28, default 28), usually the day you get paid, and
-- whether a period is **named after the month it ends in** (default) **or the month it starts in**.
+> My pay for a month arrives on day **P** of **that same month** / **the month before**.
 
-| You get paid… | Start day | Name after the month it… | "November 2026" is |
+A period runs from one payday up to the day before the next payday, and it's named after the
+month the pay is for. Days 29–31 mean the last day in months that are shorter.
+
+| You get paid… | Day | Of… | "November 2026" is |
 |---|---|---|---|
-| on the 1st | 1 | (either) | 1 Nov – 30 Nov |
-| late in October, for November | 28 | ends in | 28 Oct – 27 Nov |
-| on 5 November, for November | 5 | starts in | 5 Nov – 4 Dec |
+| on the 1st (calendar months) | 1 | that same month | 1 Nov – 30 Nov |
+| on the 5th, for that month | 5 | that same month | 5 Nov – 4 Dec |
+| on the 28th, for the next month | 28 | the month before | 28 Oct – 27 Nov |
+| on the last day, for the next month | 31 | the month before | 31 Oct – 29 Nov |
 
-With S = 1 the periods are plain calendar months, whichever naming you choose. The settings page
-shows which period today falls in as you change the values. Changing either setting re-groups all
-past entries into the new periods; income and budget history keep their dates.
+Pay from the month before must arrive on the 20th or later (settings made by older versions keep
+working). The settings page shows today's period as you change the values. Changing it re-groups
+all past entries into the new periods; income and budget history keep their dates.
 
-The Year view for year Y shows the twelve periods labelled Jan–Dec Y: with S = 28 named after the
-month it ends in, that is 28 Dec (Y−1) to 27 Dec Y; with S = 5 named after the month it starts in,
-5 Jan Y to 4 Jan (Y+1). The page shows the exact range. Averages are taken only over periods
+The Year view for year Y shows the twelve periods labelled Jan–Dec Y: paid on the 28th of the month
+before, that is 28 Dec (Y−1) to 27 Dec Y; paid on the 5th of that same month, 5 Jan Y to 4 Jan (Y+1). The page shows the exact range. Averages are taken only over periods
 that have at least one expense. Periods that haven't started yet are left blank.
 
 **Regular income** and **category budgets** both have a history, and both work the same way: a

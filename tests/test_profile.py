@@ -9,18 +9,18 @@ def _post(client, url, **data):
 
 def test_settings_page_has_the_profile_sections(client):
     page = client.get("/settings").text
-    assert "Period start day" in page and 'href="/categories"' in page and "/export.zip" in page
+    assert "My pay for a month arrives on" in page and 'href="/categories"' in page and "/export.zip" in page
     assert "alice" in page and "this device" in page
     assert client.get("/profile", follow_redirects=False).headers["location"] == "/settings"
 
 
 def test_start_day(client, conn, uid):
-    assert _post(client, "/profile/start-day", start_day="15").status_code == 303
-    assert summary.get_start_day(conn, uid) == 15
-    for bad in ("0", "29", "x", ""):
-        r = _post(client, "/profile/start-day", start_day=bad)
-        assert r.status_code == 422 and "Enter a day from 1 to 28." in r.text
-    assert summary.get_start_day(conn, uid) == 15
+    assert _post(client, "/profile/start-day", payday="25").status_code == 303
+    assert summary.get_start_day(conn, uid) == 25
+    for bad in ("0", "32", "x", ""):
+        r = _post(client, "/profile/start-day", payday=bad)
+        assert r.status_code == 422 and "Enter a day from 1 to 31." in r.text
+    assert summary.get_start_day(conn, uid) == 25
 
 
 def test_regular_income_history(client, conn, uid):
