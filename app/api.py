@@ -84,7 +84,9 @@ def _vs_budget(vb: dict) -> dict:
             "day": vb["day"], "days": vb["days"],
             "categories": [{k: c[k] for k in ("name", "joint", "budget", "spent", "fixed", "daily", "allowed", "balance")}
                            for c in vb["categories"]],
-            "pace": {"actual": vb["pace"]["actual"], "allowed": vb["pace"]["allowed"]}}
+            # actual/allowed: cumulative vs even spread (widgets up to 1.5.1); spent/available/rate:
+            # per day vs what that day had available (widget 1.6.0+). Additive, so API_VERSION stays.
+            "pace": {k: vb["pace"][k] for k in ("actual", "allowed", "spent", "available", "rate")}}
 
 
 def _summary(conn, user, today, periods: int = 6) -> dict:

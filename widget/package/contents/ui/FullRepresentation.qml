@@ -687,7 +687,9 @@ PlasmaExtras.Representation {
                       + "<br>• " + i18n("Bills, one-offs and future-dated expenses don't set the pace: they come off their category's budget straight away. Only the part beyond the budget is damage.")
                       + "<br>• " + i18n("Spending in a category without a budget is all damage.")
                       + "<br>• " + i18n("On track to save = income − spent so far − the rest of your day-to-day budget. Spending exactly your budgets would save %1.", root.eur(vb.planned))
-                      + "<br>• " + i18n("Budget pace draws the same comparison day by day: green under the dashed line, red over.")
+                      + "<br>• " + (vb.pace.spent !== undefined
+                         ? i18n("Budget pace shows it day by day: each day has the daily rate plus what carried over from the days before. Bars are red on days above the rate.")
+                         : i18n("Budget pace draws the same comparison day by day: green under the dashed line, red over."))
             }
         }
     }
@@ -739,15 +741,28 @@ PlasmaExtras.Representation {
         }
     }
 
-    // day-to-day spending (solid, to today) vs the budget spread evenly (dashed); the gap shaded
+    // Budget pace. Savings 1.6.0+: each day's day-to-day spending (bars, red above the daily rate)
+    // against what that day had available (step line: the rate plus what carried over), dashed:
+    // the rate. Older servers send only actual/allowed: the cumulative chart, as before.
     Component {
         id: secPace
         ColumnLayout {
             id: pace
             readonly property var p: full.vb.pace
+            readonly property bool daily: p.spent !== undefined && p.available !== undefined
+            readonly property int last: {
+                var src = daily ? p.spent : p.actual, l = -1;
+                for (var i = 0; i < src.length; i++) if (src[i] !== null && src[i] !== undefined) l = i;
+                return l;
+            }
             readonly property real maxV: {
-                var m = 1;
-                for (var i = 0; i < p.allowed.length; i++) m = Math.max(m, p.allowed[i], p.actual[i] || 0);
+                var m = 1, i;
+                if (daily) {
+                    m = Math.max(m, p.rate || 0);
+                    for (i = 0; i <= last; i++) m = Math.max(m, p.spent[i] || 0, p.available[i] || 0);
+                } else {
+                    for (i = 0; i < p.allowed.length; i++) m = Math.max(m, p.allowed[i], p.actual[i] || 0);
+                }
                 return m * 1.08;
             }
             spacing: Kirigami.Units.smallSpacing
@@ -761,14 +776,40 @@ PlasmaExtras.Representation {
                 onPaint: {
                     var ctx = getContext("2d");
                     ctx.reset();
-                    var a = pace.p.actual, b = pace.p.allowed, n = b.length;
-                    if (n < 2) return;
-                    function X(i) { return i / (n - 1) * (width - 2) + 1; }
-                    function Y(v) { return height - 1 - v / pace.maxV * (height - 2); }
-                    var last = -1;
-                    for (var i = 0; i < n; i++) if (a[i] !== null && a[i] !== undefined) last = i;
+                    function Y(v) { return height - 1 - Math.max(0, v) / pace.maxV * (height - 2); }
+                    if (pace.daily) {
+                        var s = pace.p.spent, av = pace.p.available, n = s.length;
+                        if (n < 1) return;
+                        var slot = (width - 2) / n, bw = Math.max(1, slot * 0.7);
+                        var L = function (i) { return 1 + i * slot; };
+                        // bars: what you spent each day, red above the daily rate
+                        for (var i = 0; i <= pace.last; i++) {
+                            if (!s[i]) continue;
+                            ctx.fillStyle = Qt.alpha(s[i] > pace.p.rate ? root.bad : root.good, 0.8);
+                            ctx.fillRect(L(i) + (slot - bw) / 2, Y(s[i]), bw, height - 1 - Y(s[i]));
+                        }
+                        // the daily rate: dashed
+                        ctx.strokeStyle = Qt.alpha(Kirigami.Theme.textColor, 0.55);
+                        ctx.lineWidth = 1.25;
+                        ctx.setLineDash([5, 4]);
+                        ctx.beginPath(); ctx.moveTo(1, Y(pace.p.rate)); ctx.lineTo(width - 1, Y(pace.p.rate)); ctx.stroke();
+                        // available that day: a step per day, to today
+                        ctx.setLineDash([]);
+                        ctx.strokeStyle = Kirigami.Theme.textColor;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        for (var k = 0; k <= pace.last; k++) {
+                            if (k === 0) ctx.moveTo(L(0), Y(av[0])); else ctx.lineTo(L(k), Y(av[k]));
+                            ctx.lineTo(L(k + 1), Y(av[k]));
+                        }
+                        ctx.stroke();
+                        return;
+                    }
+                    var a = pace.p.actual, b = pace.p.allowed, nn = b.length;
+                    if (nn < 2) return;
+                    var X = function (i) { return i / (nn - 1) * (width - 2) + 1; };
                     // the gap, day by day: red above the allowance, green below
-                    for (var j = 0; j < last; j++) {
+                    for (var j = 0; j < pace.last; j++) {
                         var over = a[j] > b[j];
                         ctx.fillStyle = Qt.alpha(over ? root.bad : root.good, 0.3);
                         ctx.beginPath();
@@ -776,19 +817,17 @@ PlasmaExtras.Representation {
                         ctx.lineTo(X(j + 1), Y(b[j + 1])); ctx.lineTo(X(j), Y(b[j]));
                         ctx.closePath(); ctx.fill();
                     }
-                    // allowed: dashed
                     ctx.strokeStyle = Qt.alpha(Kirigami.Theme.textColor, 0.55);
                     ctx.lineWidth = 1.5;
                     ctx.setLineDash([5, 4]);
                     ctx.beginPath(); ctx.moveTo(X(0), Y(b[0]));
-                    for (var k = 1; k < n; k++) ctx.lineTo(X(k), Y(b[k]));
+                    for (var q = 1; q < nn; q++) ctx.lineTo(X(q), Y(b[q]));
                     ctx.stroke();
-                    // actual: stepped, to today
                     ctx.setLineDash([]);
                     ctx.strokeStyle = Kirigami.Theme.textColor;
                     ctx.lineWidth = 2;
                     ctx.beginPath(); ctx.moveTo(X(0), Y(a[0]));
-                    for (var m = 1; m <= last; m++) { ctx.lineTo(X(m), Y(a[m - 1])); ctx.lineTo(X(m), Y(a[m])); }
+                    for (var m = 1; m <= pace.last; m++) { ctx.lineTo(X(m), Y(a[m - 1])); ctx.lineTo(X(m), Y(a[m])); }
                     ctx.stroke();
                 }
                 PC3.Label {   // scale: the top of the chart
@@ -808,14 +847,21 @@ PlasmaExtras.Representation {
                 Layout.fillWidth: true
                 spacing: Kirigami.Units.largeSpacing
                 RowLayout {
+                    visible: pace.daily
+                    spacing: 4
+                    Rectangle { width: 10; height: 10; color: Qt.alpha(root.good, 0.8) }
+                    Rectangle { width: 10; height: 10; color: Qt.alpha(root.bad, 0.8) }
+                    PC3.Label { text: i18n("Spent that day"); font: Kirigami.Theme.smallFont; opacity: 0.8 }
+                }
+                RowLayout {
                     spacing: 4
                     Rectangle { width: 14; height: 2; color: Kirigami.Theme.textColor }
-                    PC3.Label { text: i18n("Day-to-day spending"); font: Kirigami.Theme.smallFont; opacity: 0.8 }
+                    PC3.Label { text: pace.daily ? i18n("Available that day") : i18n("Day-to-day spending"); font: Kirigami.Theme.smallFont; opacity: 0.8 }
                 }
                 RowLayout {
                     spacing: 4
                     Rectangle { width: 14; height: 2; color: Qt.alpha(Kirigami.Theme.textColor, 0.55) }
-                    PC3.Label { text: i18n("Allowed by budget"); font: Kirigami.Theme.smallFont; opacity: 0.8 }
+                    PC3.Label { text: pace.daily ? i18n("Daily rate (%1)", root.eur(Math.round(pace.p.rate * 100))) : i18n("Allowed by budget"); font: Kirigami.Theme.smallFont; opacity: 0.8 }
                 }
             }
         }

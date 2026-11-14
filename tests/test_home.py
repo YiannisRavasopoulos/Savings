@@ -264,6 +264,41 @@ def test_budget_balance_fixed_and_unbudgeted_spending(dash_conn, uid):
     assert pace["allowed"][-1] == (9000 + 5000 + 0) / 100
 
 
+def test_budget_pace_daily_spending_against_what_each_day_had_available(dash_conn, uid):
+    """Each day has the daily rate plus what carried over: spend less and the next day has more."""
+    vb = summary.dashboard(dash_conn, uid, TODAY)["vs_budget"]
+    pace, days, day = vb["pace"], vb["days"], vb["day"]
+    flexible = sum(c["flexible"] for c in vb["categories"])
+    rate = flexible / days
+    assert pace["rate"] == round(rate) / 100
+    assert len(pace["spent"]) == len(pace["available"]) == days
+    assert all(x is None for x in pace["spent"][day:] + pace["available"][day:])     # after today: nothing yet
+    carry = 0
+    for i in range(day):
+        assert pace["available"][i] == round(rate + carry) / 100
+        carry += rate - pace["spent"][i] * 100
+    # the daily bars add up to the cumulative line, and the carry ends where the balance is
+    assert round(sum(pace["spent"][:day]), 2) == pace["actual"][day - 1] == vb["daily"] / 100
+    assert abs((rate * day - vb["daily"]) - carry) < 1e-6
+
+
+def test_budget_pace_carries_over_both_ways(conn, uid, monkeypatch):
+    """A 31-day period, budget 310.00: a 10.00 rate. Day 1 spends 4 (6 carried), day 2 spends 25
+    (available 16, so 9 overspent), day 3 has 10 - 9 = 1."""
+    from .conftest import add_budget
+    cid = conn.execute("SELECT id FROM categories WHERE user_id = ? ORDER BY sort_order LIMIT 1", (uid,)).fetchone()[0]
+    add_budget(conn, cid, 31000, "2026-01-01")
+    conn.executemany("INSERT INTO expenses (date, description, category_id, amount_cents) VALUES (?, '', ?, ?)",
+                     [("2026-10-28", cid, 400), ("2026-10-29", cid, 2500)])
+    conn.commit()
+    ms = summary.month_summary(conn, uid, 2026, 11)           # 28 Oct - 27 Nov: 31 days
+    pace = summary.budget_balance(conn, uid, ms, date(2026, 10, 30))["pace"]
+    assert pace["rate"] == 10.0
+    assert pace["spent"][:3] == [4.0, 25.0, 0.0]
+    assert pace["available"][:3] == [10.0, 16.0, 1.0]
+    assert pace["spent"][3] is None and pace["available"][3] is None
+
+
 def test_budget_balance_last_day_is_budget_minus_spent(dash_conn, uid):
     vb = summary.dashboard(dash_conn, uid, date(2026, 11, 27))["vs_budget"]
     assert {c["name"]: c["balance"] for c in vb["categories"]} == {
@@ -281,7 +316,8 @@ def test_savings_vs_budget_lives_on_the_budget_page_not_home(client, dash_conn):
     page = client.get("/budget").text
     assert "damage so far, behind budget" in page and "€1,560.31" in page
     data = json.loads(re.search(r'id="budget-pace-data">(.*?)</script>', page, re.S).group(1))
-    assert len(data["allowed"]) == 31
+    assert len(data["allowed"]) == 31 and len(data["spent"]) == len(data["available"]) == 31
+    assert "Each day gets the daily rate (€" in page
 
 
 def test_budget_explanation_is_behind_learn_how(client, dash_conn):

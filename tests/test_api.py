@@ -221,3 +221,6 @@ def test_summary_has_savings_vs_budget_for_the_budget_tab(app, client, conn):
     assert vb["categories"] == [{"name": "Transport", "joint": False, "budget": 31000, "spent": 6000, "fixed": 0,
                                  "daily": 6000, "allowed": 9000, "balance": 3000}]
     assert len(vb["pace"]["allowed"]) == 31 and vb["pace"]["actual"][8] == 60.0 and vb["pace"]["actual"][9] is None
+    # widget 1.6.0's daily chart, next to the old fields (additive: API_VERSION stays)
+    assert set(vb["pace"]) == {"actual", "allowed", "spent", "available", "rate"}
+    assert len(vb["pace"]["spent"]) == 31 and vb["pace"]["spent"][9] is None and vb["pace"]["rate"] > 0

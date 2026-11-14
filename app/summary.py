@@ -250,14 +250,26 @@ def budget_balance(conn: sqlite3.Connection, user_id: int, ms: dict, today: date
     rest = sum(c["flexible"] - c["allowed"] for c in cats)          # day-to-day budget still to come
     projected = ms["income"] - ms["spent"] - rest                    # if you keep to budget from here
 
-    # pace chart: cumulative day-to-day spending (to today) vs the even spread of the budget
+    # pace chart (Budget page): each day's day-to-day spending against what that day had available:
+    # the daily rate (day-to-day budget / days) plus whatever carried over from the days before,
+    # more if you spent less than the rate, less if you spent more. Days after today are None.
+    # "actual"/"allowed" (cumulative spending vs the even spread) stay for the KDE widget.
     per_day = dict(conn.execute(
         f"SELECT e.date, SUM(s.cents) FROM expenses e {MY_SHARE_JOIN} "
         f"WHERE e.date BETWEEN :start AND :end AND NOT {FIXED_SQL} GROUP BY e.date", args).fetchall())
-    actual, total = [], 0
+    rate = flexible / days                                           # cents a day
+    actual, daily_spent, available, total, carry = [], [], [], 0, 0.0
     for i in range(days):
-        total += per_day.get(date.fromordinal(start.toordinal() + i).isoformat(), 0)
+        cents = per_day.get(date.fromordinal(start.toordinal() + i).isoformat(), 0)
+        total += cents
         actual.append(total / 100 if i < day else None)
+        if i < day:
+            daily_spent.append(cents / 100)
+            available.append(round(rate + carry) / 100)
+            carry += rate - cents
+        else:
+            daily_spent.append(None)
+            available.append(None)
     return {
         "categories": cats,
         "budget": sum(c["budget"] for c in cats),
@@ -271,7 +283,8 @@ def budget_balance(conn: sqlite3.Connection, user_id: int, ms: dict, today: date
         "fixed": sum(c["fixed"] for c in cats),
         "scale": max([abs(c["balance"]) for c in cats] + [1]),
         "pace": {"labels": [str(i) for i in range(1, days + 1)], "actual": actual,
-                 "allowed": [round(flexible * (i + 1) / days) / 100 for i in range(days)]},
+                 "allowed": [round(flexible * (i + 1) / days) / 100 for i in range(days)],
+                 "spent": daily_spent, "available": available, "rate": round(rate) / 100},
     }
 
 
