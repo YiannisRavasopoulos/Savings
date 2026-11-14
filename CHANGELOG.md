@@ -16,6 +16,24 @@ Widget sections say which Savings they need. A widget that's too old for its ser
 
 ---
 
+## Savings 1.5.0 · 2026-11-14
+
+### Changed
+
+- **Settings → Budget period is one sentence now:** "My pay for a month arrives on day **P** of
+  **that same month** / **the month before**", with a preview of today's period. It replaces the
+  start day and the "starts in / ends in" choice of 1.4.0, which described the same thing in a way
+  that was hard to follow. Your periods stay exactly as they were.
+- **Pay from the month before must arrive on the 20th or later** for new settings, so a period
+  can't end up named a month later by mistake. Settings that older versions allowed keep working.
+
+### New
+
+- **Paydays 29, 30 and 31.** In a month without that day, the payday is the month's last day:
+  paid on "the 31st" means 31 Jan, 28 Feb (29 in a leap year), 31 Mar, 30 Apr…
+
+---
+
 ## Savings 1.4.0 · 2026-11-14
 
 ### New

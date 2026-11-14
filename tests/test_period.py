@@ -33,10 +33,10 @@ def test_for_date_february_and_leap_years():
     assert period_for_date(date(2027, 2, 28), 28) == (2027, 3)   # non-leap last day
     assert period_for_date(date(2028, 2, 28), 28) == (2028, 3)
     assert period_for_date(date(2028, 2, 29), 28) == (2028, 3)   # leap day
-    assert period_for_date(date(2028, 2, 29), 1) == (2028, 2)
+    assert period_for_date(date(2028, 2, 29), 1, "start") == (2028, 2)
 
 
-# --- period_for_date, S = 1 (calendar months) --------------------------------
+# --- period_for_date, S = 1 "that same month" (calendar months) -----------------
 
 @pytest.mark.parametrize("d, expected", [
     (date(2026, 10, 31), (2026, 10)),
@@ -47,7 +47,7 @@ def test_for_date_february_and_leap_years():
     (date(2027, 1, 1), (2027, 1)),
 ])
 def test_for_date_s1(d, expected):
-    assert period_for_date(d, 1) == expected
+    assert period_for_date(d, 1, "start") == expected
 
 
 # --- other S values: before / on / after ---------------------------------------
@@ -75,12 +75,12 @@ def test_bounds_s28_february_and_march():
 
 
 def test_bounds_s1_calendar_months():
-    assert period_bounds(2026, 11, 1) == (date(2026, 11, 1), date(2026, 11, 30))
-    assert period_bounds(2026, 12, 1) == (date(2026, 12, 1), date(2026, 12, 31))
-    assert period_bounds(2027, 1, 1) == (date(2027, 1, 1), date(2027, 1, 31))
-    assert period_bounds(2027, 2, 1) == (date(2027, 2, 1), date(2027, 2, 28))
-    assert period_bounds(2028, 2, 1) == (date(2028, 2, 1), date(2028, 2, 29))  # leap
-    assert period_bounds(2100, 2, 1) == (date(2100, 2, 1), date(2100, 2, 28))  # not leap
+    assert period_bounds(2026, 11, 1, "start") == (date(2026, 11, 1), date(2026, 11, 30))
+    assert period_bounds(2026, 12, 1, "start") == (date(2026, 12, 1), date(2026, 12, 31))
+    assert period_bounds(2027, 1, 1, "start") == (date(2027, 1, 1), date(2027, 1, 31))
+    assert period_bounds(2027, 2, 1, "start") == (date(2027, 2, 1), date(2027, 2, 28))
+    assert period_bounds(2028, 2, 1, "start") == (date(2028, 2, 1), date(2028, 2, 29))  # leap
+    assert period_bounds(2100, 2, 1, "start") == (date(2100, 2, 1), date(2100, 2, 28))  # not leap
 
 
 def test_bounds_s2_january():
@@ -102,7 +102,7 @@ def test_periods_tile_without_gaps_or_overlaps(s):
         y, m = shift_period(y, m, 1)
 
 
-@pytest.mark.parametrize("bad", [0, 29, 31, -1, "28"])
+@pytest.mark.parametrize("bad", [0, 32, -1, "28", True])
 def test_invalid_start_day(bad):
     with pytest.raises(ValueError):
         period_for_date(date(2026, 1, 1), bad)

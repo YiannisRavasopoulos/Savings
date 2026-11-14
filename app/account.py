@@ -144,10 +144,11 @@ async def register(request: Request, conn=Depends(get_conn)):
 # --- profile --------------------------------------------------------------------------
 
 def _period_preview(conn, uid: int) -> str:
-    """e.g. 'Today is in “November 2026”: 5 Nov – 4 Dec 2026.' (the JS preview says the same)."""
+    """e.g. 'So “November 2026” = 5 Nov – 4 Dec 2026.' for today's period (the JS preview says the same)."""
     rule = summary.get_period_rule(conn, uid)
     y, m = rule.for_date(config.today())
-    return f"Today is in “{period.period_label(y, m)}”: {period.range_label(*rule.bounds(y, m))}."
+    calendar_months = " (calendar months)" if (rule.payday, rule.naming) == (1, "start") else ""
+    return f"So “{period.period_label(y, m)}” = {period.range_label(*rule.bounds(y, m))}.{calendar_months}"
 
 
 def render_profile(request: Request, conn, status_code: int = 200, errors=None, values=None,
@@ -295,35 +296,40 @@ async def set_name(request: Request, conn=Depends(get_conn)):
     return _saved()
 
 
-NAMING_TEXT = {"end": "the month it ends in", "start": "the month it starts in"}
+PAY_FOR = {"start": "that same month", "end": "the month before"}
 
 
 @router.post("/profile/start-day")
 async def set_start_day(request: Request, conn=Depends(get_conn)):
+    """Settings → Budget period: "My pay for a month arrives on day P of [that same month | the
+    month before]". (The URL predates the payday wording.)"""
     form = await request.form()
-    raw = (form.get("start_day") or "").strip()
-    naming = (form.get("period_naming") or request.state.user["period_naming"]).strip()
-    values = {"start_day": raw, "period_naming": naming}
+    user = request.state.user
+    raw = (form.get("payday") or form.get("start_day") or "").strip()
+    naming = (form.get("period_naming") or user["period_naming"]).strip()
+    values = {"payday": raw, "period_naming": naming}
     errors = {}
     try:
         value = int(raw)
-        if not 1 <= value <= 28:
+        if not 1 <= value <= period.MAX_PAYDAY:
             raise ValueError
     except ValueError:
-        errors["start_day"] = "Enter a day from 1 to 28."
-    if naming not in NAMING_TEXT:
-        errors["period_naming"] = "Choose how periods are named."
+        value = None
+        errors["payday"] = f"Enter a day from 1 to {period.MAX_PAYDAY}."
+    if naming not in PAY_FOR:
+        errors["period_naming"] = "Choose which month your pay is for."
+    elif value is not None and not period.naming_allowed(value, naming) \
+            and (value, naming) != (user["payday"], user["period_naming"]):   # older settings stay valid
+        errors["period_naming"] = (f"Pay from the month before must arrive on the "
+                                   f"{period.MONTH_BEFORE_MIN_DAY}th or later.")
     if errors:
         return render_profile(request, conn, 422, errors=errors, values=values)
-    user = request.state.user
     with conn:
-        conn.execute("UPDATE users SET period_start_day = ?, period_naming = ? WHERE id = ?",
-                     (value, naming, user_id(request)))
-        if value != user["period_start_day"]:
-            audit.log(conn, user_id(request), "account.start_day", f"Set the budget period start day to {value}")
-        if naming != user["period_naming"]:
-            audit.log(conn, user_id(request), "account.period_naming",
-                      f"Budget periods are now named after {NAMING_TEXT[naming]}")
+        conn.execute("UPDATE users SET payday = ?, period_start_day = ?, period_naming = ? WHERE id = ?",
+                     (value, min(value, 28), naming, user_id(request)))
+        if (value, naming) != (user["payday"], user["period_naming"]):
+            audit.log(conn, user_id(request), "account.payday",
+                      f"Pay for a month now arrives on day {value} of {PAY_FOR[naming]}")
     return _saved()
 
 

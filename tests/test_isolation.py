@@ -111,7 +111,7 @@ def test_same_category_names_for_different_users(bob, conn, alice_data):
 
 
 def test_settings_are_per_user(bob, client, conn, uid):
-    bob.post("/profile/start-day", data={"start_day": "1"})
+    bob.post("/profile/start-day", data={"payday": "1", "period_naming": "start"})
     assert conn.execute("SELECT period_start_day FROM users WHERE id = ?", (uid,)).fetchone()[0] == 28
     assert "28 Oct – 27 Nov 2026" in client.get("/month?period=2026-11").text
     assert "1 Nov – 30 Nov 2026" in bob.get("/month?period=2026-11").text

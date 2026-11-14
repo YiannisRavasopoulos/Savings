@@ -27,9 +27,9 @@ MY_SHARE_JOIN = "JOIN expense_shares s ON s.expense_id = e.id AND s.user_id = :u
 
 
 def get_period_rule(conn: sqlite3.Connection, user_id: int) -> PeriodRule:
-    """The user's period settings: start day and whether periods are named after the month
-    they end in or start in. Missing or invalid values fall back to the defaults."""
-    row = conn.execute("SELECT period_start_day, period_naming FROM users WHERE id = ?",
+    """The user's period settings: payday and which month the pay is for (that same month /
+    the month before). Missing or invalid values fall back to the defaults."""
+    row = conn.execute("SELECT payday, period_naming FROM users WHERE id = ?",
                        (user_id,)).fetchone()
     return PeriodRule.lenient(*row) if row else PeriodRule()
 

@@ -25,7 +25,7 @@ def _fresh(tmp_path):
 
 def test_migrate_is_idempotent(tmp_path):
     conn = db.connect(tmp_path / "t.db")
-    assert db.migrate(conn) == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    assert db.migrate(conn) == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
     assert db.migrate(conn) == []
 
 
@@ -109,7 +109,7 @@ def test_migration_003_upgrades_a_single_user_database(tmp_path):
     conn.execute("INSERT INTO settings (key, value) VALUES ('theme', 'dark')")
     conn.commit()
 
-    assert db.migrate(conn) == [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    assert db.migrate(conn) == [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
     cols = {t: [r[1] for r in conn.execute(f"PRAGMA table_info({t})")]
             for t in ("categories", "extra_income", "regular_income")}
     assert all("user_id" in c for c in cols.values())
@@ -129,7 +129,7 @@ def test_migration_005_keeps_messages_and_allows_delete_requests(tmp_path):
     with pytest.raises(sqlite3.IntegrityError):
         conn.execute("INSERT INTO admin_messages (username, display_name, subject, body) "
                      "VALUES ('x', 'X', 'delete_account', 'y')")
-    assert db.migrate(conn) == [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    assert db.migrate(conn) == [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
     assert [tuple(r) for r in conn.execute("SELECT user_id, subject, body FROM admin_messages")] == [(uid, "idea", "keep me")]
     conn.execute("INSERT INTO admin_messages (username, display_name, subject, body) VALUES ('x', 'X', 'delete_account', 'y')")
     with pytest.raises(sqlite3.IntegrityError):
@@ -171,7 +171,7 @@ def test_migration_008_retires_their_part_keeping_costs(tmp_path):
     conn.execute("INSERT INTO expenses (date, category_id, amount_cents, their_part_cents) VALUES ('2026-11-02', ?, 500, 500)", (cid,))
     conn.execute("INSERT INTO expenses (date, category_id, amount_cents) VALUES ('2026-11-03', ?, 700)", (cid,))
     conn.commit()
-    assert db.migrate(conn) == [8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    assert db.migrate(conn) == [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
     assert "their_part_cents" not in [r[1] for r in conn.execute("PRAGMA table_info(expenses)")]
     rows = [tuple(r) for r in conn.execute("SELECT amount_cents, notes FROM expenses ORDER BY date")]
     assert rows == [(3000, "train\n[Their part 10.00 of 40.00 removed; amount is now your cost.]"), (700, "")]
@@ -211,7 +211,7 @@ def test_upgrade_to_personal_budgets_and_archived_names(tmp_path):
                      "VALUES (?, ?, 7000, '2026-01-01'), (?, ?, 3000, '2026-01-01')", (home, a, home, b))
         conn.execute("INSERT INTO category_budgets (category_id, monthly_budget_cents, effective_from) "
                      "VALUES (?, 20000, '2026-01-01'), (?, 60001, '2026-01-01')", (food, home))
-    assert db.migrate(conn) == [11, 12, 13, 14, 15, 16, 17]
+    assert db.migrate(conn) == [11, 12, 13, 14, 15, 16, 17, 18]
     rows = {(r[0], r[1]): r[2] for r in conn.execute("SELECT category_id, user_id, monthly_budget_cents FROM category_budgets")}
     assert rows == {(food, a): 20000, (home, a): 42000, (home, b): 18000}
     names = sorted(r[0] for r in conn.execute("SELECT name FROM categories WHERE user_id = ?", (a,)))

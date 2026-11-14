@@ -320,6 +320,9 @@ dialog h2 { margin: 0 0 12px; }
 .choice input { width: 22px; height: 22px; margin-top: 1px; flex: none; accent-color: var(--accent); }
 .choice-detail { margin: 0 0 6px 32px; }
 .field-title { display: block; font-weight: 600; margin-bottom: 4px; }
+.pay-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pay-row input { max-width: 5.5em; }
+.pay-row select { width: auto; }
 .period-preview { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; }
 
 /* login / register */

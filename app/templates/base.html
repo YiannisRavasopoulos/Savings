@@ -46,7 +46,8 @@
       var m = now.getMonth(), d = now.getDate();
       if ((m === 11 && d >= 31) || (m === 0 && d === 1)) return { name: "christmas", note: "Happy New Year!" };
       if (m === 11 && d >= 24) return { name: "christmas", note: "Merry Christmas!" };
-      if (startDay && now.getDate() === startDay) return { name: "vault", note: "A new period begins" };
+      var last = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      if (startDay && now.getDate() === Math.min(startDay, last)) return { name: "vault", note: "A new period begins" };
       var day = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000);
       if (choice === "shuffle") day = (day * 2654435761) % 4294967296;   // a fixed, scrambled order
       return { name: list[day % list.length] };
@@ -70,7 +71,7 @@
         // (rotate daily, shuffle daily, or a favourite); special days override the rotation.
         var standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
         if (standalone && !root.classList.contains("no-anim") && !store.getItem("savings-splash")) {
-          var pick = window.savingsPickSplash(new Date(), {{ (user.period_start_day if user else 0)|int }});
+          var pick = window.savingsPickSplash(new Date(), {{ (user.payday if user else 0)|int }});
           root.classList.add("splash");
           root.setAttribute("data-splash", pick.name);
           if (pick.note) root.setAttribute("data-splash-note", pick.note);

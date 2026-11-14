@@ -46,9 +46,15 @@ def test_start_naming_is_end_naming_shifted_by_one_month():
 
 
 @pytest.mark.parametrize("d", [date(2026, 1, 1), date(2026, 11, 5), date(2028, 2, 29), date(2026, 12, 31)])
-def test_s1_is_the_calendar_month_with_either_naming(d):
-    assert period_for_date(d, 1, "start") == period_for_date(d, 1, "end") == (d.year, d.month)
-    assert period_bounds(2026, 11, 1, "start") == period_bounds(2026, 11, 1, "end")
+def test_day1_that_same_month_is_the_calendar_month(d):
+    assert period_for_date(d, 1, "start") == (d.year, d.month)
+    assert period_bounds(2026, 11, 1, "start") == (date(2026, 11, 1), date(2026, 11, 30))
+
+
+def test_day1_the_month_before_is_the_previous_calendar_month():
+    """The general rule: pay on 1 Oct for November -> November = 1 Oct - 31 Oct (the 1 - 1 = 0 edge)."""
+    assert period_bounds(2026, 11, 1, "end") == (date(2026, 10, 1), date(2026, 10, 31))
+    assert period_for_date(date(2026, 10, 15), 1, "end") == (2026, 11)
 
 
 @pytest.mark.parametrize("naming", ["end", "start"])
@@ -122,8 +128,8 @@ def test_pages_show_start_naming(client, paid_on_5th, monkeypatch):
     home = client.get("/").text
     assert "November 2026" in home
     settings = client.get("/profile").text
-    assert "Today is in “November 2026”: 5 Nov – 4 Dec 2026." in settings
-    assert 'value="start" checked' in settings
+    assert "So “November 2026” = 5 Nov – 4 Dec 2026." in settings
+    assert 'value="start" selected' in settings
 
 
 def test_recurring_horizon_follows_naming(paid_on_5th, uid):
@@ -137,8 +143,8 @@ def test_save_start_day_and_naming(client, conn, uid):
     assert summary.get_period_rule(conn, uid) == PeriodRule(28, "end")      # default for existing users
     assert _post(client, "/profile/start-day", start_day="5", period_naming="start").status_code == 303
     assert summary.get_period_rule(conn, uid) == PeriodRule(5, "start")
-    kinds = [r[0] for r in conn.execute("SELECT kind FROM activity_log WHERE actor_id = ? ORDER BY id", (uid,))]
-    assert kinds[-2:] == ["account.start_day", "account.period_naming"]
+    last = conn.execute("SELECT kind, detail FROM activity_log WHERE actor_id = ? ORDER BY id DESC LIMIT 1", (uid,)).fetchone()
+    assert tuple(last) == ("account.payday", "Pay for a month now arrives on day 5 of that same month")
 
 
 def test_old_form_without_naming_keeps_the_current_naming(client, conn, uid):
@@ -149,7 +155,7 @@ def test_old_form_without_naming_keeps_the_current_naming(client, conn, uid):
 
 def test_invalid_naming_is_refused(client, conn, uid):
     r = _post(client, "/profile/start-day", start_day="5", period_naming="sideways")
-    assert r.status_code == 422 and "Choose how periods are named." in r.text
+    assert r.status_code == 422 and "Choose which month your pay is for." in r.text
     assert summary.get_period_rule(conn, uid) == PeriodRule(28, "end")
 
 

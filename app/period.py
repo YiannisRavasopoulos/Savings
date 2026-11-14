@@ -1,33 +1,39 @@
 """Budget periods. The only place that knows how dates map to "months".
 
-A user's periods are set by a start day S (1-28) and a naming rule:
+A user's periods come from one sentence: "my pay for a month arrives on day P of
+[that same month | the month before]".
 
-  * naming "end" (default): a period is named after the month it ENDS in.
-        S > 1: (year, month) runs from day S of the previous month to day S-1 of `month`.
-               e.g. S=28, (2026, 11) = 2026-10-28 .. 2026-11-27  (paid late in October for November)
-  * naming "start": a period is named after the month it STARTS in.
-        S > 1: (year, month) runs from day S of `month` to day S-1 of the next month.
-               e.g. S=5, (2026, 11) = 2026-11-05 .. 2026-12-04   (paid on 5 November for November)
-  * S = 1: the plain calendar month with either naming, e.g. (2026, 11) = 2026-11-01 .. 2026-11-30.
+  * P is the payday, 1-31. In a month without that day (31 in April, 30 in February) the payday
+    is that month's last day.
+  * A period runs from one payday up to the day before the next payday.
+  * It is named after the month the pay is FOR:
+        naming "start" ("that same month"):  pay on 5 Nov  -> "November" = 5 Nov - 4 Dec
+        naming "end"   ("the month before"): pay on 28 Oct -> "November" = 28 Oct - 27 Nov
+  * P = 1 with "that same month" gives plain calendar months.
+
+"The month before" needs a payday from the 20th on (MONTH_BEFORE_MIN_DAY) for new settings;
+settings saved by older versions (e.g. day 10, the month before) keep working as they were.
 """
 from __future__ import annotations
 
 import calendar
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 
 MONTH_NAMES = [None, "January", "February", "March", "April", "May", "June", "July",
                "August", "September", "October", "November", "December"]
 MONTH_ABBR = [None, "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct",
               "Nov", "Dec"]
-NAMINGS = ("end", "start")
-DEFAULT_START_DAY = 28
+NAMINGS = ("start", "end")              # "that same month", "the month before"
+DEFAULT_PAYDAY = 28
 DEFAULT_NAMING = "end"
+MONTH_BEFORE_MIN_DAY = 20
+MAX_PAYDAY = 31
 
 
-def _check_start_day(start_day: int) -> None:
-    if not isinstance(start_day, int) or not 1 <= start_day <= 28:
-        raise ValueError(f"period start day must be 1-28, got {start_day!r}")
+def _check_payday(payday: int) -> None:
+    if not isinstance(payday, int) or isinstance(payday, bool) or not 1 <= payday <= MAX_PAYDAY:
+        raise ValueError(f"payday must be 1-{MAX_PAYDAY}, got {payday!r}")
 
 
 def _check_naming(naming: str) -> None:
@@ -41,54 +47,62 @@ def shift_period(year: int, month: int, delta: int) -> tuple[int, int]:
     return index // 12, index % 12 + 1
 
 
-def period_for_date(d: date, start_day: int, naming: str = DEFAULT_NAMING) -> tuple[int, int]:
-    """Return (year, month) of the period that contains d."""
-    _check_start_day(start_day)
-    _check_naming(naming)
-    if start_day == 1:
-        return d.year, d.month
-    if naming == "start":
-        return (d.year, d.month) if d.day >= start_day else shift_period(d.year, d.month, -1)
-    return (d.year, d.month) if d.day < start_day else shift_period(d.year, d.month, 1)
+def payday_in(year: int, month: int, payday: int) -> date:
+    """The payday in that calendar month: day `payday`, or the month's last day if it's shorter."""
+    return date(year, month, min(payday, calendar.monthrange(year, month)[1]))
 
 
-def period_bounds(year: int, month: int, start_day: int,
+def period_bounds(year: int, month: int, payday: int,
                   naming: str = DEFAULT_NAMING) -> tuple[date, date]:
-    """Return (first_day, last_day) of the period, both inclusive."""
-    _check_start_day(start_day)
+    """Return (first_day, last_day) of the period named (year, month), both inclusive."""
+    _check_payday(payday)
     _check_naming(naming)
     if not 1 <= month <= 12:
         raise ValueError(f"month must be 1-12, got {month!r}")
-    if start_day == 1:
-        return date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])
-    if naming == "start":
-        next_year, next_month = shift_period(year, month, 1)
-        return date(year, month, start_day), date(next_year, next_month, start_day - 1)
-    prev_year, prev_month = shift_period(year, month, -1)
-    return date(prev_year, prev_month, start_day), date(year, month, start_day - 1)
+    first = (year, month) if naming == "start" else shift_period(year, month, -1)
+    nxt = shift_period(*first, 1)
+    return payday_in(*first, payday), payday_in(*nxt, payday) - timedelta(days=1)
+
+
+def period_for_date(d: date, payday: int, naming: str = DEFAULT_NAMING) -> tuple[int, int]:
+    """Return (year, month) of the period that contains d."""
+    _check_payday(payday)
+    _check_naming(naming)
+    # the calendar month whose payday starts the period containing d
+    first = (d.year, d.month) if d >= payday_in(d.year, d.month, payday) else shift_period(d.year, d.month, -1)
+    return first if naming == "start" else shift_period(*first, 1)
+
+
+def naming_allowed(payday: int, naming: str) -> bool:
+    """The rule for new settings: pay from the month before arrives on the 20th or later."""
+    return naming == "start" or payday >= MONTH_BEFORE_MIN_DAY
 
 
 @dataclass(frozen=True)
 class PeriodRule:
-    """A user's period settings. Pass this around instead of a bare start day."""
-    start_day: int = DEFAULT_START_DAY
+    """A user's period settings. Pass this around instead of a bare payday."""
+    payday: int = DEFAULT_PAYDAY
     naming: str = DEFAULT_NAMING
 
     def __post_init__(self):
-        _check_start_day(self.start_day)
+        _check_payday(self.payday)
         _check_naming(self.naming)
 
     @classmethod
-    def lenient(cls, start_day, naming) -> "PeriodRule":
+    def lenient(cls, payday, naming) -> "PeriodRule":
         """From stored values; anything invalid falls back to the defaults."""
-        s = start_day if isinstance(start_day, int) and 1 <= start_day <= 28 else DEFAULT_START_DAY
-        return cls(s, naming if naming in NAMINGS else DEFAULT_NAMING)
+        p = payday if isinstance(payday, int) and 1 <= payday <= MAX_PAYDAY else DEFAULT_PAYDAY
+        return cls(p, naming if naming in NAMINGS else DEFAULT_NAMING)
+
+    @property
+    def start_day(self) -> int:          # older name, kept for callers that only need the day
+        return self.payday
 
     def for_date(self, d: date) -> tuple[int, int]:
-        return period_for_date(d, self.start_day, self.naming)
+        return period_for_date(d, self.payday, self.naming)
 
     def bounds(self, year: int, month: int) -> tuple[date, date]:
-        return period_bounds(year, month, self.start_day, self.naming)
+        return period_bounds(year, month, self.payday, self.naming)
 
     def current_bounds(self, today: date) -> tuple[date, date]:
         return self.bounds(*self.for_date(today))
