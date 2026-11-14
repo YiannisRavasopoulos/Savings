@@ -17,7 +17,9 @@
 
 <section class="panel">
   <h2>Budget pace</h2>
-  <div class="chart-box"><canvas id="chart-budget-pace" aria-label="Day-to-day spending versus budget pace"></canvas></div>
+  <div class="chart-box"><canvas id="chart-budget-pace" aria-label="Day-to-day spending each day versus what was available that day"></canvas></div>
+  <p class="muted small">Each day gets the daily rate ({{ (vb.pace.rate * 100)|round|int|eur }}) plus whatever carried over: spend less and the
+    next day has more, spend more and it has less. Bars are red on days above the rate.</p>
 </section>
 
 <section class="panel">

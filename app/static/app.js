@@ -69,25 +69,27 @@
   var year = data("year-chart-data");
   if (year) spentVsIncome("year-chart", year);
 
-  // Budget pace (Budget page): day-to-day spending vs the budget spread evenly;
-  // the gap is green below, red above
+  // Budget pace (Budget page): each day's day-to-day spending (bars: red above the daily rate,
+  // green at or below it) against what that day had available (step line: the rate plus what
+  // carried over from the days before). Dashed line: the daily rate.
   function budgetPace(bp) {
     var bpCanvas = document.getElementById("chart-budget-pace");
-    if (bp && bpCanvas) {
+    if (bp && bpCanvas && bp.spent) {
       new Chart(bpCanvas, {
-        type: "line",
         data: { labels: bp.labels, datasets: [
-          { label: "Day-to-day spending", data: bp.actual, borderColor: v("--text"), backgroundColor: v("--text"),
-            pointRadius: 0, borderWidth: 2.5, stepped: true,
-            fill: { target: 1, above: rgba(v("--loss"), 0.3), below: rgba(v("--gain"), 0.3) } },
-          { label: "Allowed by budget", data: bp.allowed, borderColor: v("--text-muted"), borderDash: [6, 5],
-            pointRadius: 0, borderWidth: 1.5, fill: false }
+          { type: "bar", label: "Spent", data: bp.spent, order: 3, borderRadius: 2,
+            backgroundColor: bp.spent.map(function (x) { return x !== null && x > bp.rate ? rgba(v("--loss"), 0.8) : rgba(v("--gain"), 0.7); }) },
+          { type: "line", label: "Available that day", data: bp.available, order: 1, stepped: "middle",
+            borderColor: v("--text"), backgroundColor: v("--text"), borderWidth: 2, pointRadius: 0 },
+          { type: "line", label: "Daily rate", data: bp.labels.map(function () { return bp.rate; }), order: 2,
+            borderColor: v("--text-muted"), borderDash: [6, 5], borderWidth: 1.25, pointRadius: 0, fill: false }
         ] },
         options: { maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
-                   scales: { x: { title: { display: true, text: "Day of period" }, ticks: { maxTicksLimit: 8 } },
+                   scales: { x: { title: { display: true, text: "Day of period" }, ticks: { maxTicksLimit: 10 } },
                              y: { beginAtZero: true, ticks: { callback: function (x) { return eur.format(x); } } } },
                    plugins: { legend: { position: "bottom" },
-                              tooltip: { callbacks: { title: function (items) { return "Day " + items[0].label; },
+                              tooltip: { filter: function (i) { return i.parsed.y !== null; },
+                                         callbacks: { title: function (items) { return "Day " + items[0].label; },
                                                       label: function (c) { return c.dataset.label + ": " + eur.format(c.parsed.y); } } } } }
       });
     }

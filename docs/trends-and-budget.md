@@ -119,20 +119,23 @@ allowance passes €150 (day 16).
 - **Learn how** (closed until pressed): the explanation above, using this period's numbers.
 - No budgets set: the section says so and links to Categories, and the pace chart is hidden.
 
-### Budget pace section (the trend through the period)
+### Budget pace section (day by day)
 
-A line chart over the days of the current period:
+A chart over the days of the period, up to today:
 
-- **Dashed line, "Allowed by budget":** your day-to-day budgets spread evenly from day 1 to the
-  last day.
-- **Solid stepped line, "Day-to-day spending":** what you've actually spent each day, added up,
-  up to today. Fixed spending is left out, as in the balance.
-- **Shading between them:** green where you're under the dashed line and red where you're over.
-  The gap at today is your day-to-day balance. Hover the chart for both values on any day.
+- **Daily rate (dashed):** your day-to-day budget divided by the days in the period: what one day
+  gets if you spread the budget evenly.
+- **Bars, "Spent":** what you spent on each day (day-to-day only; bills, one-offs and recurring
+  payments are left out, as in the balance). A bar is **red** on a day you spent more than the
+  rate and **green** on a day you spent less.
+- **Step line, "Available that day":** the rate plus whatever carried over from the days before.
+  Spend less than what's available and the rest carries to the next day, so the line steps up;
+  spend more and the next day has less, so it steps down (it can drop below the rate, or to zero
+  when you're behind). Hover a day for its numbers.
 
-How to read it: a solid line that climbs more steeply than the dashed one means you're spending
-faster than the budget allows. A flat stretch means days without spending, which pull you back
-toward green. The two lines meeting on the last day means you've spent exactly your budget.
+How to read it: a step line above the dashed rate means you have margin to spare; below it means
+you're making up for earlier days. On the last day, what's left of the last step is what you
+saved from the day-to-day budget, the same number as the balance.
 
 ### Where to find it
 

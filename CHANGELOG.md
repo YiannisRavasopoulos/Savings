@@ -16,6 +16,31 @@ Widget sections say which Savings they need. A widget that's too old for its ser
 
 ---
 
+## Savings 1.6.0 · 2026-11-14
+
+### Changed
+
+- **Budget pace is a day-by-day chart.** Each day shows what you spent (a bar, red above the daily
+  rate, green below) against what that day had available: the daily rate plus whatever carried
+  over from the days before. Spend less and the next day has more; spend more and it has less.
+  It replaces the cumulative line against a straight diagonal, which read as if the whole budget
+  should be spent by the last day.
+
+### New
+
+- The widget API sends the daily numbers too (`spent`, `available`, `rate` in the budget pace),
+  next to the old ones, so older widgets keep working.
+
+## Widget 1.6.0 · 2026-11-14
+
+### Changed
+
+- **Budget pace** in the Budget tab draws the new day-by-day chart (bars per day, the amount
+  available that day, the daily rate). Needs Savings 1.6.0; with an older Savings it draws the
+  chart as before.
+
+---
+
 ## Savings 1.5.0 · 2026-11-14
 
 ### Changed
