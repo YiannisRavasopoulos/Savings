@@ -765,6 +765,11 @@ PlasmaExtras.Representation {
                 }
                 return m * 1.08;
             }
+            readonly property real minV: {
+                var m = 0;
+                if (daily) for (var i = 0; i <= last; i++) m = Math.min(m, p.available[i] || 0);
+                return m < 0 ? m * 1.08 : 0;
+            }
             spacing: Kirigami.Units.smallSpacing
             Kirigami.Heading { level: 4; text: i18n("Budget pace") }
             Canvas {
@@ -776,17 +781,25 @@ PlasmaExtras.Representation {
                 onPaint: {
                     var ctx = getContext("2d");
                     ctx.reset();
-                    function Y(v) { return height - 1 - Math.max(0, v) / pace.maxV * (height - 2); }
+                    var lo = pace.minV, span = pace.maxV - lo;
+                    var Y = function (v) { return height - 1 - (Math.max(lo, v) - lo) / span * (height - 2); };
                     if (pace.daily) {
                         var s = pace.p.spent, av = pace.p.available, n = s.length;
                         if (n < 1) return;
                         var slot = (width - 2) / n, bw = Math.max(1, slot * 0.7);
                         var L = function (i) { return 1 + i * slot; };
-                        // bars: what you spent each day, red above the daily rate
+                        var zero = Y(0);
+                        // €0: when the available amount goes below it, you're behind
+                        if (lo < 0) {
+                            ctx.strokeStyle = Qt.alpha(Kirigami.Theme.textColor, 0.3);
+                            ctx.lineWidth = 1;
+                            ctx.beginPath(); ctx.moveTo(1, zero); ctx.lineTo(width - 1, zero); ctx.stroke();
+                        }
+                        // bars: what you spent each day (up from €0), red above the daily rate
                         for (var i = 0; i <= pace.last; i++) {
                             if (!s[i]) continue;
                             ctx.fillStyle = Qt.alpha(s[i] > pace.p.rate ? root.bad : root.good, 0.8);
-                            ctx.fillRect(L(i) + (slot - bw) / 2, Y(s[i]), bw, height - 1 - Y(s[i]));
+                            ctx.fillRect(L(i) + (slot - bw) / 2, Y(s[i]), bw, zero - Y(s[i]));
                         }
                         // the daily rate: dashed
                         ctx.strokeStyle = Qt.alpha(Kirigami.Theme.textColor, 0.55);
@@ -834,6 +847,14 @@ PlasmaExtras.Representation {
                     anchors.left: parent.left
                     anchors.top: parent.top
                     text: root.eur(Math.round(pace.maxV * 100))
+                    font: Kirigami.Theme.smallFont
+                    opacity: 0.6
+                }
+                PC3.Label {   // and the bottom, when it goes below €0
+                    visible: pace.minV < 0
+                    anchors.left: parent.left
+                    anchors.bottom: parent.bottom
+                    text: root.eur(Math.round(pace.minV * 100))
                     font: Kirigami.Theme.smallFont
                     opacity: 0.6
                 }
