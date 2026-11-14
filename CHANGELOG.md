@@ -16,7 +16,7 @@ Widget sections say which Savings they need. A widget that's too old for its ser
 
 ---
 
-## Savings 1.4.0 · 2026-11-12
+## Savings 1.4.0 · 2026-11-14
 
 ### New
 
@@ -27,6 +27,11 @@ Widget sections say which Savings they need. A widget that's too old for its ser
 
 ### Changed
 
+- **Savings is published on IPv4 only.** Before, Docker also published it on IPv6, and many
+  connections give every device a public IPv6 address, so Savings could be reachable from the
+  internet when the router let IPv6 in. The new `BIND_ADDRESS` setting (default `0.0.0.0`)
+  chooses the address; upgrades get the safe default without changing `.env`. Need IPv6 on your
+  network? See *On your network* in the install guide.
 - **Settings → Budget period** explains the start day in plain words and shows, as you type,
   which period today falls in. The old wording ("day S of October to day S−1 of November") read
   as if start day 1 meant 1 Oct – 31 Oct; it has always meant the calendar month.

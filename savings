@@ -24,6 +24,8 @@ env_val() { sed -n "s/^$1=//p" .env 2>/dev/null | tail -1 | sed 's/^"\(.*\)"$/\1
 NAME="$(env_val CONTAINER_NAME)"; NAME="${NAME:-savings}"
 PORT="$(env_val PORT)"; PORT="${PORT:-8090}"
 ADMIN_PORT="$(env_val ADMIN_PORT)"; ADMIN_PORT="${ADMIN_PORT:-8091}"
+BIND="$(env_val BIND_ADDRESS)"
+case "${BIND:-0.0.0.0}" in 0.0.0.0|"[::]"|::) APP_HOST=localhost ;; *) APP_HOST="$BIND" ;; esac
 DATA_DIR="$(env_val DATA_DIR)"; DATA_DIR="${DATA_DIR:-../Savings Server Data}"
 case "$DATA_DIR" in /*) ;; *) DATA_DIR="$dir/$DATA_DIR" ;; esac
 VERSION="$(cat VERSION 2>/dev/null || echo dev)"
@@ -40,9 +42,10 @@ need_docker() {
 }
 running() { [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" = "true" ]; }
 health() { docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$NAME" 2>/dev/null || echo missing; }
-answers() {   # answers PORT PATH: does http://localhost:PORT/PATH respond?
-  if command -v curl >/dev/null 2>&1; then curl -fs -o /dev/null --max-time 5 "http://localhost:$1$2" 2>/dev/null
-  else python3 -c "import sys, urllib.request; urllib.request.urlopen(sys.argv[1], timeout=5)" "http://localhost:$1$2" 2>/dev/null; fi
+answers() {   # answers PORT PATH [HOST]: does http://HOST:PORT/PATH respond? (HOST: localhost)
+  local url="http://${3:-localhost}:$1$2"
+  if command -v curl >/dev/null 2>&1; then curl -fs -o /dev/null --max-time 5 "$url" 2>/dev/null
+  else python3 -c "import sys, urllib.request; urllib.request.urlopen(sys.argv[1], timeout=5)" "$url" 2>/dev/null; fi
 }
 set_env() {   # set_env KEY VALUE in .env (add it if missing)
   if grep -q "^$1=" .env 2>/dev/null; then sed -i "s|^$1=.*|$1=$2|" .env; else printf '%s=%s\n' "$1" "$2" >> .env; fi
@@ -57,8 +60,8 @@ case "$cmd" in
     need_docker
     if running; then
       h="$(health)"; tone="$G"; [ "$h" = "healthy" ] || [ "$h" = "none" ] || tone="$Y"
-      printf '%sSavings %s%s: %srunning%s (%s) · app http://localhost:%s · admin http://localhost:%s\n' \
-        "$B" "$VERSION" "$N" "$tone" "$N" "$h" "$PORT" "$ADMIN_PORT"
+      printf '%sSavings %s%s: %srunning%s (%s) · app http://%s:%s · admin http://localhost:%s\n' \
+        "$B" "$VERSION" "$N" "$tone" "$N" "$h" "$APP_HOST" "$PORT" "$ADMIN_PORT"
     else
       printf '%sSavings %s%s: %snot running%s (start it: savings start)\n' "$B" "$VERSION" "$N" "$R" "$N"
     fi
@@ -83,8 +86,8 @@ case "$cmd" in
         *) bad "Docker health check: $(health) (see: savings logs)" ;;
       esac
       # just (re)started? give it up to 20 s before calling it a problem
-      for _ in $(seq 1 20); do answers "$PORT" /login && break; sleep 1; done
-      answers "$PORT" /login && ok "app answers on port $PORT" || bad "the app doesn't answer on port $PORT"
+      for _ in $(seq 1 20); do answers "$PORT" /login "$APP_HOST" && break; sleep 1; done
+      answers "$PORT" /login "$APP_HOST" && ok "app answers on port $PORT" || bad "the app doesn't answer on port $PORT"
       answers "$ADMIN_PORT" / && ok "admin answers on port $ADMIN_PORT" || bad "the admin app doesn't answer on port $ADMIN_PORT"
       integ="$(docker exec "$NAME" python -c "import sqlite3; print(sqlite3.connect('file:/data/db/spending.db?mode=ro', uri=True).execute('PRAGMA quick_check').fetchone()[0])" 2>/dev/null)"
       [ "$integ" = "ok" ] && ok "database integrity ok" || bad "database integrity check failed: ${integ:-no answer}"
@@ -120,7 +123,7 @@ case "$cmd" in
     [ "$BAD" -eq 0 ]; exit $?
     ;;
   # ------------------------------------------------------------------ lifecycle
-  start)   need_docker; docker compose up -d && echo "Started: http://localhost:$PORT" ;;
+  start)   need_docker; docker compose up -d && echo "Started: http://$APP_HOST:$PORT" ;;
   stop)    need_docker; docker compose stop && echo "Stopped. It stays stopped, also after a reboot, until: savings start" ;;
   restart) need_docker; docker compose restart && echo "Restarted." ;;
   logs)    need_docker; if [ "${1:-}" = "-f" ]; then docker logs -f --tail 50 "$NAME" 2>&1; else docker logs --tail 200 "$NAME" 2>&1; fi ;;
@@ -201,7 +204,7 @@ EOF
     esac
     ;;
   # ------------------------------------------------------------------ misc
-  open)    xdg-open "http://localhost:$PORT" >/dev/null 2>&1 & ;;
+  open)    xdg-open "http://$APP_HOST:$PORT" >/dev/null 2>&1 & ;;
   admin)   xdg-open "http://localhost:$ADMIN_PORT" >/dev/null 2>&1 & ;;
   version) echo "Savings $VERSION" ;;
   uninstall) exec "$dir/uninstall.sh" "$@" ;;
