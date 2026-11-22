@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import account, audit, auth, backup, config, db, export, forms, joint, period, recurring, summary
+from . import account, audit, auth, backup, config, db, export, forms, joint, notice, period, recurring, summary
 from . import categories as category_routes
 from . import plans as plan_routes
 from . import import_routes, recurring_routes
@@ -28,7 +28,7 @@ from .web import BASE_DIR, NOW_SQL, current_period, get_conn, redirect, render, 
 router = APIRouter()
 
 # Pages reachable without logging in.
-PUBLIC_PATHS = ("/login", "/register", "/static/", "/favicon.ico", "/sw.js", "/offline")
+PUBLIC_PATHS = ("/login", "/register", "/static/", "/favicon.ico", "/sw.js", "/offline", "/notice.json")
 # Pages a user who must change their password may still use.
 PASSWORD_CHANGE_PATHS = ("/profile/password", "/logout")
 
@@ -84,6 +84,13 @@ def favicon():
 
 
 # Offline support for the home-screen app (service worker + a page with no personal data).
+@router.get("/notice.json", include_in_schema=False)
+def server_notice(request: Request):
+    """The current server notice (or null), polled by every page so the banner appears without a reload."""
+    return JSONResponse({"notice": notice.current(request.app.state.cfg.data_dir)},
+                        headers={"Cache-Control": "no-store"})
+
+
 @router.get("/sw.js", include_in_schema=False)
 def service_worker(request: Request):
     body = templates.env.get_template("pwa/sw.js").render(v=request.app.state.static_v)

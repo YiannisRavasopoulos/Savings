@@ -140,6 +140,7 @@
   </nav>
   {% endif %}
   <main>
+    {% include "_server_notice.html" %}
     {% set here = request.url.path %}
     {% if user and here in parents %}<a class="back-link" href="{{ parents[here][0] }}">&lsaquo; {{ parents[here][1] }}</a>{% endif %}
     {% block content %}{% endblock %}
@@ -250,6 +251,7 @@
     });
   </script>
   {% endif %}
+  {% include "_server_notice_js.html" %}
   {% block scripts %}{% endblock %}
   <script src="/static/fx.js?v={{ static_v }}" defer></script>
   <script src="/static/prefs.js?v={{ static_v }}" defer></script>

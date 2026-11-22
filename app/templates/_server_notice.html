@@ -1,0 +1,8 @@
+{# A server-wide notice (e.g. power outage), from DATA_DIR/notice.json. Needs: server_notice (dict or None).
+   The live update (every 10 s via /notice.json) is _server_notice_js.html, at the end of base.html. #}
+<section class="server-notice{{ ' danger' if server_notice and server_notice.level == 'danger' }}" id="server-notice"
+         role="alert" aria-live="assertive"{% if not server_notice %} hidden{% endif %}>
+  <span class="sn-icon" aria-hidden="true">⚠</span>
+  <p><strong class="sn-title">{{ server_notice.title if server_notice }}</strong>
+     <span class="sn-text">{{ server_notice.text if server_notice }}</span></p>
+</section>

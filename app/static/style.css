@@ -414,6 +414,17 @@ select option:disabled { color: var(--text-muted); background: var(--surface); }
 
 
 /* "period resets soon" banner */
+/* Server notice (DATA_DIR/notice.json, e.g. a power outage): above everything on the page.
+   Theme colours, so it fits every theme (amber = warning, red = danger). */
+.server-notice { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 14px; padding: 12px 14px;
+  border-radius: 12px; border: 1px solid var(--amber); border-left: 6px solid var(--amber);
+  background: color-mix(in srgb, var(--amber) 16%, var(--surface)); color: var(--text); }
+.server-notice.danger { border-color: var(--red); background: color-mix(in srgb, var(--red) 16%, var(--surface)); }
+.server-notice[hidden] { display: none; }
+.server-notice .sn-icon { font-size: 1.25em; line-height: 1.2; color: var(--amber-text); }
+.server-notice.danger .sn-icon { color: var(--danger); }
+.server-notice p { margin: 0; }
+.server-notice .sn-title { display: block; }
 .reset-banner { position: relative; background: var(--joint-bg); border: 1px solid var(--joint); border-left: 6px solid var(--joint);
   border-radius: 6px; padding: 10px 40px 10px 12px; margin-bottom: 12px; }
 .reset-banner p { margin: 0; }
