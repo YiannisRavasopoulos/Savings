@@ -8,7 +8,7 @@ from fastapi import Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from . import config, db, period, summary
+from . import config, db, notice, period, summary
 from .money import cents_to_input, format_eur
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -57,6 +57,7 @@ def render(request: Request, name: str, status_code: int = 200, **ctx):
     ctx.setdefault("user", user)
     ctx.setdefault("theme", valid_theme(user["theme"]) if user else "auto")
     ctx.setdefault("static_v", request.app.state.static_v)
+    ctx.setdefault("server_notice", notice.current(request.app.state.cfg.data_dir))
     return templates.TemplateResponse(request, name, ctx, status_code=status_code)
 
 

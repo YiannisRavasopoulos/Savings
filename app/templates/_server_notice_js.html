@@ -1,0 +1,23 @@
+{# Keeps the server notice banner up to date without a reload (outside <main>: no scripts in page content). #}
+<script>
+  (function () {
+    var box = document.getElementById("server-notice");
+    if (!box || !window.fetch) return;
+    function show(n) {
+      box.hidden = !n;
+      if (!n) return;
+      box.classList.toggle("danger", n.level === "danger");
+      box.querySelector(".sn-title").textContent = n.title || "";
+      box.querySelector(".sn-text").textContent = n.text || "";
+    }
+    function check() {
+      if (document.hidden) return;
+      fetch("/notice.json", { cache: "no-store", credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { if (d) show(d.notice); })
+        .catch(function () {});   // server unreachable: keep showing what we had
+    }
+    setInterval(check, 10000);
+    document.addEventListener("visibilitychange", check);
+  })();
+</script>

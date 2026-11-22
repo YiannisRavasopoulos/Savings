@@ -96,6 +96,26 @@ thread inside it. Docker restarts it at boot, so no systemd unit or login script
 Download the newer release and run its `./install.sh` with the same install folder. Your settings
 and data are kept, and the database is upgraded automatically.
 
+## Server notices
+
+To show a message on every page (a power outage, planned maintenance), write `notice.json` in the
+data folder (`DATA_DIR`). Savings shows it as a banner on every page, the login page included,
+and checks for changes every 10 seconds:
+
+```json
+{"level": "warning", "title": "Server on battery",
+ "text": "It shuts down in about 2 minutes unless power returns.",
+ "created": 1795000000, "expires": 1795000600}
+```
+
+- `level`: `warning` (amber) or `danger` (red).
+- `title` (up to 80 characters) and `text` (up to 300): plain text, shown as is.
+- `expires`: a Unix time. After it the notice is ignored, so a file left behind can't stay up
+  forever. Delete the file to remove the notice straight away.
+
+Savings never writes this file. Anyone who can open Savings, logged in or not, can read the
+notice (`/notice.json`), so don't put anything private in it.
+
 ## Settings (`.env`)
 
 The installer writes your answers to `.env` in the install folder (`~/Savings/server/.env`).

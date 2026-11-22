@@ -16,6 +16,19 @@ Widget sections say which Savings they need. A widget that's too old for its ser
 
 ---
 
+## Savings 1.7.0 · 2026-11-22
+
+### New
+
+- **Server notices.** The server's host can put a message on every page of Savings, for example
+  "Server on battery: shutting down in about 2 minutes" during a power outage. It appears as a
+  banner at the top of every page, the login page included, and appears or goes away by itself
+  within 10 seconds, without a reload. Savings only reads the notice; the host writes it as
+  `notice.json` in the data folder (see [Installing and running](docs/install.md#server-notices)).
+  A notice past its expiry time, or a file that isn't a valid notice, is ignored.
+
+---
+
 ## Widget 1.6.1 · 2026-11-14
 
 ### Fixed
